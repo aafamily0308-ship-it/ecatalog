@@ -72,7 +72,8 @@
    - API магазина,
    - XML/CSV фид,
    - кабинет продавца (ручное размещение),
-   - аккуратный парсер (если нет API).
+   - аккуратный парсер (если нет API),
+   - SEO JSON-LD extraction (Product/Offer) как стандартный fallback для сайтов без API.
 
 2. Ingestion Service принимает сырой поток и сохраняет в `raw_offers`.
 

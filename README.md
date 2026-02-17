@@ -24,10 +24,18 @@ Then open http://127.0.0.1:8000.
 python -m unittest discover -s tests
 ```
 
-## Import feed example
+## Import feed examples
+
+CSV import:
 
 ```bash
 python scripts/import_feed.py --file sample_feed.csv
+```
+
+If a marketplace has no API, parse public product page JSON-LD:
+
+```bash
+python scripts/import_feed.py --source-url https://example.com/product-page
 ```
 
 CSV columns:
@@ -41,3 +49,9 @@ CSV columns:
 - `price_azn`
 - `currency`
 - `url`
+
+
+## Notes for websites without API
+
+Many e-commerce pages expose `application/ld+json` Product/Offer metadata for SEO.
+The importer now supports extracting offers from this JSON-LD when direct API feeds are unavailable.
