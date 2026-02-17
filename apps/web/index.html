@@ -56,6 +56,20 @@
       </section>
 
       <section class="card">
+        <h2>Price updates</h2>
+        <form id="price-form">
+          <input name="offer_id" type="number" placeholder="Offer ID" required />
+          <input name="price_azn" type="number" min="1" step="0.01" placeholder="New price (AZN)" required />
+          <button type="submit">Update price</button>
+        </form>
+        <div class="history-actions">
+          <input id="history-offer-id" type="number" placeholder="Offer ID for history" />
+          <button id="load-history" type="button">Load price history</button>
+        </div>
+        <ul id="price-history"></ul>
+      </section>
+
+      <section class="card">
         <h2>Catalog</h2>
         <button id="refresh">Refresh</button>
         <ul id="products"></ul>

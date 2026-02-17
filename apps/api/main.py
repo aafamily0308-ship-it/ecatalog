@@ -7,8 +7,10 @@ from apps.api.repository import (
     create_offer,
     create_product,
     get_comparison,
+    list_offer_price_history,
     list_offers,
     list_products,
+    update_offer_price,
     update_offer_status,
 )
 from apps.api.schemas import (
@@ -177,6 +179,31 @@ def application(environ, start_response):
             return json_response(start_response, "200 OK", update_offer_status(offer_id, status_update.status))
         except ValueError as exc:
             return json_response(start_response, "404 Not Found", {"error": str(exc)})
+
+    if path.startswith("/api/offers/") and path.endswith("/price") and method == "PATCH":
+        offer_id_raw = path.split("/")[3]
+        try:
+            offer_id = int(offer_id_raw)
+        except ValueError:
+            return json_response(start_response, "400 Bad Request", {"error": "Invalid offer id"})
+
+        data = parse_json_body(environ)
+        if not _is_valid_price(data.get("price_azn")):
+            return json_response(start_response, "400 Bad Request", {"error": "Invalid price"})
+
+        try:
+            return json_response(start_response, "200 OK", update_offer_price(offer_id, float(data["price_azn"])))
+        except ValueError as exc:
+            return json_response(start_response, "404 Not Found", {"error": str(exc)})
+
+    if path.startswith("/api/offers/") and path.endswith("/price-history") and method == "GET":
+        offer_id_raw = path.split("/")[3]
+        try:
+            offer_id = int(offer_id_raw)
+        except ValueError:
+            return json_response(start_response, "400 Bad Request", {"error": "Invalid offer id"})
+
+        return json_response(start_response, "200 OK", list_offer_price_history(offer_id))
 
     if path.startswith("/api/compare/") and method == "GET":
         product_id_raw = path.rsplit("/", 1)[-1]

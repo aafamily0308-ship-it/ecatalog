@@ -76,6 +76,13 @@ def _find_or_create_seller(name: str, city: str | None) -> int:
     return seller_id
 
 
+def _insert_price_history(cur, offer_id: int, old_price: float | None, new_price: float) -> None:
+    cur.execute(
+        "INSERT INTO price_history (offer_id, old_price_azn, new_price_azn) VALUES (?, ?, ?)",
+        (offer_id, old_price, new_price),
+    )
+
+
 def create_offer(payload: OfferCreate) -> dict:
     if not product_exists(payload.product_id):
         raise ValueError("Product does not exist")
@@ -98,8 +105,9 @@ def create_offer(payload: OfferCreate) -> dict:
             int(payload.is_available),
         ),
     )
-    conn.commit()
     offer_id = cur.lastrowid
+    _insert_price_history(cur, offer_id, None, payload.price_azn)
+    conn.commit()
 
     row = cur.execute(
         """
@@ -144,6 +152,55 @@ def update_offer_status(offer_id: int, status: str) -> dict:
     data = dict(row)
     data["is_available"] = bool(data["is_available"])
     return data
+
+
+def update_offer_price(offer_id: int, new_price: float) -> dict:
+    conn = get_connection()
+    cur = conn.cursor()
+
+    offer = cur.execute("SELECT price_azn FROM offers WHERE id = ?", (offer_id,)).fetchone()
+    if not offer:
+        conn.close()
+        raise ValueError("Offer not found")
+
+    old_price = float(offer["price_azn"])
+    cur.execute("UPDATE offers SET price_azn = ? WHERE id = ?", (new_price, offer_id))
+    _insert_price_history(cur, offer_id, old_price, new_price)
+    conn.commit()
+
+    row = cur.execute(
+        """
+        SELECT o.id, p.id as product_id, p.title, s.name as seller_name, s.city as seller_city,
+               o.price_azn, o.currency, p.condition, o.is_available, o.url, o.status
+        FROM offers o
+        JOIN products p ON p.id = o.product_id
+        JOIN sellers s ON s.id = o.seller_id
+        WHERE o.id = ?
+        """,
+        (offer_id,),
+    ).fetchone()
+    conn.close()
+
+    data = dict(row)
+    data["is_available"] = bool(data["is_available"])
+    return data
+
+
+def list_offer_price_history(offer_id: int) -> list[dict]:
+    conn = get_connection()
+    cur = conn.cursor()
+
+    rows = cur.execute(
+        """
+        SELECT id, offer_id, old_price_azn, new_price_azn, changed_at
+        FROM price_history
+        WHERE offer_id = ?
+        ORDER BY id ASC
+        """,
+        (offer_id,),
+    ).fetchall()
+    conn.close()
+    return [dict(row) for row in rows]
 
 
 def list_offers(product_id: int | None = None, status: str | None = None) -> list[dict]:

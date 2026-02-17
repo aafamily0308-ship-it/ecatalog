@@ -7,7 +7,8 @@ Initial project scaffold for an Azerbaijan-focused product aggregator + marketpl
 - **Python backend API** with SQLite persistence.
 - **Product + offer endpoints** for catalog and price comparison.
 - **Moderation status flow** (`pending/approved/rejected`) for offers.
-- **Simple web UI** to browse products, create offers, and moderate offer status.
+- **Price history tracking** for offers with timeline endpoint.
+- **Simple web UI** to browse products, create offers, moderate status, and update prices.
 - **CSV ingestion script** to import offers from partner feeds.
 - **Automated tests** using standard library + pytest (if available).
 
@@ -32,6 +33,8 @@ python -m unittest discover -s tests
 - `POST /api/offers`
 - `GET /api/offers`
 - `PATCH /api/offers/{id}/status`
+- `PATCH /api/offers/{id}/price`
+- `GET /api/offers/{id}/price-history`
 - `GET /api/compare/{product_id}` (uses only approved offers)
 
 ## Import feed examples

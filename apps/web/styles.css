@@ -22,10 +22,12 @@ body {
   box-shadow: 0 3px 10px rgba(0, 0, 0, 0.08);
 }
 
-form {
+form,
+.history-actions {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
   gap: 8px;
+  margin-bottom: 10px;
 }
 
 input,

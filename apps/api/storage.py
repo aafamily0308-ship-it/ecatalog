@@ -62,6 +62,19 @@ def init_db() -> None:
         """
     )
 
+    cur.execute(
+        """
+        CREATE TABLE IF NOT EXISTS price_history (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            offer_id INTEGER NOT NULL,
+            old_price_azn REAL,
+            new_price_azn REAL NOT NULL,
+            changed_at TEXT DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (offer_id) REFERENCES offers(id)
+        )
+        """
+    )
+
     _ensure_offer_status_column(cur)
 
     conn.commit()

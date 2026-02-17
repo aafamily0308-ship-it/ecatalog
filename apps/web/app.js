@@ -16,6 +16,14 @@ async function fetchComparison(productId) {
   return res.json();
 }
 
+async function fetchOfferHistory(offerId) {
+  const res = await fetch(`/api/offers/${offerId}/price-history`);
+  if (!res.ok) {
+    throw new Error(await parseError(res));
+  }
+  return res.json();
+}
+
 function renderProducts(products) {
   const target = document.getElementById('products');
   target.innerHTML = '';
@@ -25,6 +33,25 @@ function renderProducts(products) {
     const li = document.createElement('li');
     const price = cmp?.best_price_azn ? `${cmp.best_price_azn} AZN` : 'no approved offers yet';
     li.textContent = `#${product.id} ${product.title} (${product.condition}) — best price: ${price}`;
+    target.appendChild(li);
+  });
+}
+
+function renderPriceHistory(historyRows) {
+  const target = document.getElementById('price-history');
+  target.innerHTML = '';
+
+  if (!historyRows.length) {
+    const li = document.createElement('li');
+    li.textContent = 'No price history yet';
+    target.appendChild(li);
+    return;
+  }
+
+  historyRows.forEach((row) => {
+    const li = document.createElement('li');
+    const oldPrice = row.old_price_azn === null ? 'initial' : `${row.old_price_azn} AZN`;
+    li.textContent = `${row.changed_at}: ${oldPrice} -> ${row.new_price_azn} AZN`;
     target.appendChild(li);
   });
 }
@@ -122,6 +149,45 @@ document.getElementById('moderation-form').addEventListener('submit', async (eve
   form.reset();
   showMessage(`Offer #${updated.id} status updated to ${updated.status}`);
   await refreshProducts();
+});
+
+document.getElementById('price-form').addEventListener('submit', async (event) => {
+  event.preventDefault();
+  const form = event.target;
+  const offerId = Number(form.offer_id.value);
+  const price = Number(form.price_azn.value);
+
+  const res = await fetch(`/api/offers/${offerId}/price`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ price_azn: price }),
+  });
+
+  if (!res.ok) {
+    showMessage(await parseError(res), 'error');
+    return;
+  }
+
+  const updated = await res.json();
+  form.reset();
+  showMessage(`Offer #${updated.id} price updated to ${updated.price_azn} AZN`);
+  await refreshProducts();
+});
+
+document.getElementById('load-history').addEventListener('click', async () => {
+  const offerId = Number(document.getElementById('history-offer-id').value);
+  if (!offerId) {
+    showMessage('Provide offer id for history', 'error');
+    return;
+  }
+
+  try {
+    const rows = await fetchOfferHistory(offerId);
+    renderPriceHistory(rows);
+    showMessage(`Loaded ${rows.length} price history records`);
+  } catch (error) {
+    showMessage(String(error.message || error), 'error');
+  }
 });
 
 document.getElementById('refresh').addEventListener('click', refreshProducts);
