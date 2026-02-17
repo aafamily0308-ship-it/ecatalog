@@ -1,0 +1,157 @@
+:root {
+  font-family: Inter, Arial, sans-serif;
+  color: #13213c;
+  background: #f4f7ff;
+}
+
+body { margin: 0; }
+
+.container {
+  max-width: 1140px;
+  margin: 0 auto;
+  padding: 24px;
+}
+
+.hero {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  align-items: center;
+  margin-bottom: 18px;
+}
+
+.admin-link {
+  text-decoration: none;
+  background: #0d6efd;
+  color: #fff;
+  padding: 10px 14px;
+  border-radius: 10px;
+  font-weight: 600;
+}
+
+.card {
+  background: #fff;
+  border-radius: 14px;
+  padding: 18px;
+  margin-bottom: 16px;
+  box-shadow: 0 8px 24px rgba(16, 29, 66, 0.08);
+}
+
+.split-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+  gap: 14px;
+}
+
+.grid-form,
+.history-actions {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+  gap: 10px;
+}
+
+.grid-form h3 {
+  margin: 0;
+  grid-column: 1 / -1;
+}
+
+input,
+select,
+button {
+  padding: 10px;
+  border: 1px solid #d6dff1;
+  border-radius: 10px;
+}
+
+button {
+  background: #0057ff;
+  color: #fff;
+  border: none;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.secondary-btn { background: #df3030; }
+.ghost-btn {
+  background: #eef3ff;
+  color: #294174;
+  border: 1px solid #bfd0ff;
+}
+
+.catalog-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 14px;
+}
+
+.product-card {
+  border: 1px solid #e4e9f8;
+  border-radius: 12px;
+  padding: 14px;
+  background: #fbfcff;
+}
+
+.price {
+  color: #0b7a2f;
+  font-weight: 700;
+}
+
+.table-wrap { overflow: auto; }
+
+.admin-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.admin-table th,
+.admin-table td {
+  border-bottom: 1px solid #e6ecfa;
+  text-align: left;
+  padding: 10px;
+  vertical-align: middle;
+}
+
+.inline-input {
+  width: 110px;
+}
+
+.action-row {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.status {
+  border-radius: 999px;
+  padding: 4px 8px;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.status-pending { background: #fff4dd; color: #8d5a00; }
+.status-approved { background: #e8f7ec; color: #0d6a2f; }
+.status-rejected { background: #fde8e8; color: #9f2020; }
+
+.muted {
+  color: #5e6b8c;
+}
+
+.message {
+  min-height: 20px;
+  margin: 8px 0 16px;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.message.success { color: #0a7a22; }
+.message.error { color: #b81f1f; }
+
+.json-box {
+  background: #10182b;
+  color: #d8e2ff;
+  border-radius: 10px;
+  padding: 12px;
+  overflow: auto;
+  max-height: 300px;
+  font-size: 12px;
+}
