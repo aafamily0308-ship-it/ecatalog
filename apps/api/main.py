@@ -7,6 +7,8 @@ from apps.api.repository import (
     create_offer,
     create_product,
     get_comparison,
+    get_product_card,
+    get_seller_dashboard,
     list_offer_price_history,
     list_offers,
     list_products,
@@ -58,6 +60,18 @@ def _is_valid_price(value: object) -> bool:
         return False
 
 
+def _float_query(raw: str | None, field: str) -> tuple[float | None, str | None]:
+    if raw is None:
+        return None, None
+    try:
+        value = float(raw)
+    except ValueError:
+        return None, f"Invalid {field}"
+    if value < 0:
+        return None, f"Invalid {field}"
+    return value, None
+
+
 def application(environ, start_response):
     path = environ["PATH_INFO"]
     method = environ["REQUEST_METHOD"]
@@ -104,12 +118,39 @@ def application(environ, start_response):
         if condition and condition not in VALID_CONDITIONS:
             return json_response(start_response, "400 Bad Request", {"error": "Invalid condition"})
 
+        min_price, min_error = _float_query(query.get("min_price", [None])[0], "min_price")
+        if min_error:
+            return json_response(start_response, "400 Bad Request", {"error": min_error})
+
+        max_price, max_error = _float_query(query.get("max_price", [None])[0], "max_price")
+        if max_error:
+            return json_response(start_response, "400 Bad Request", {"error": max_error})
+
+        status = query.get("status", ["approved"])[0]
+        if status and status not in VALID_OFFER_STATUSES:
+            return json_response(start_response, "400 Bad Request", {"error": "Invalid offer status"})
+
         data = list_products(
             search=query.get("search", [None])[0],
             category=query.get("category", [None])[0],
             condition=condition,
+            min_price=min_price,
+            max_price=max_price,
+            city=query.get("city", [None])[0],
+            status=status,
         )
         return json_response(start_response, "200 OK", data)
+
+    if path.startswith("/api/products/") and path.endswith("/card") and method == "GET":
+        product_id_raw = path.split("/")[3]
+        try:
+            product_id = int(product_id_raw)
+        except ValueError:
+            return json_response(start_response, "400 Bad Request", {"error": "Invalid product_id"})
+        try:
+            return json_response(start_response, "200 OK", get_product_card(product_id))
+        except ValueError as exc:
+            return json_response(start_response, "404 Not Found", {"error": str(exc)})
 
     if path == "/api/offers" and method == "POST":
         data = parse_json_body(environ)
@@ -152,15 +193,32 @@ def application(environ, start_response):
         if status and status not in VALID_OFFER_STATUSES:
             return json_response(start_response, "400 Bad Request", {"error": "Invalid offer status"})
 
+        min_price, min_error = _float_query(query.get("min_price", [None])[0], "min_price")
+        if min_error:
+            return json_response(start_response, "400 Bad Request", {"error": min_error})
+
+        max_price, max_error = _float_query(query.get("max_price", [None])[0], "max_price")
+        if max_error:
+            return json_response(start_response, "400 Bad Request", {"error": max_error})
+
+        seller_name = query.get("seller_name", [None])[0]
+        city = query.get("city", [None])[0]
+
+        product_id = None
         if product_id_raw:
             try:
                 product_id = int(product_id_raw)
             except ValueError:
                 return json_response(start_response, "400 Bad Request", {"error": "Invalid product_id"})
-            data = list_offers(product_id=product_id, status=status)
-        else:
-            data = list_offers(status=status)
 
+        data = list_offers(
+            product_id=product_id,
+            status=status,
+            seller_name=seller_name,
+            min_price=min_price,
+            max_price=max_price,
+            city=city,
+        )
         return json_response(start_response, "200 OK", data)
 
     if path.startswith("/api/offers/") and path.endswith("/status") and method == "PATCH":
@@ -204,6 +262,13 @@ def application(environ, start_response):
             return json_response(start_response, "400 Bad Request", {"error": "Invalid offer id"})
 
         return json_response(start_response, "200 OK", list_offer_price_history(offer_id))
+
+    if path.startswith("/api/sellers/") and path.endswith("/dashboard") and method == "GET":
+        seller_name = path.split("/")[3]
+        try:
+            return json_response(start_response, "200 OK", get_seller_dashboard(seller_name))
+        except ValueError as exc:
+            return json_response(start_response, "404 Not Found", {"error": str(exc)})
 
     if path.startswith("/api/compare/") and method == "GET":
         product_id_raw = path.rsplit("/", 1)[-1]

@@ -34,26 +34,52 @@ def list_products(
     search: str | None = None,
     category: str | None = None,
     condition: str | None = None,
+    min_price: float | None = None,
+    max_price: float | None = None,
+    city: str | None = None,
+    status: str | None = "approved",
 ) -> list[dict]:
     conn = get_connection()
     cur = conn.cursor()
 
-    sql = "SELECT id, title, brand, category, condition FROM products WHERE 1=1"
+    sql = """
+        SELECT DISTINCT p.id, p.title, p.brand, p.category, p.condition
+        FROM products p
+        LEFT JOIN offers o ON o.product_id = p.id
+        LEFT JOIN sellers s ON s.id = o.seller_id
+        WHERE 1=1
+    """
     params: list[object] = []
 
     if search:
-        sql += " AND LOWER(title) LIKE ?"
+        sql += " AND LOWER(p.title) LIKE ?"
         params.append(f"%{search.lower()}%")
 
     if category:
-        sql += " AND category = ?"
+        sql += " AND p.category = ?"
         params.append(category)
 
     if condition:
-        sql += " AND condition = ?"
+        sql += " AND p.condition = ?"
         params.append(condition)
 
-    sql += " ORDER BY id DESC"
+    if status:
+        sql += " AND (o.status = ? OR o.id IS NULL)"
+        params.append(status)
+
+    if min_price is not None:
+        sql += " AND (o.price_azn >= ? OR o.id IS NULL)"
+        params.append(min_price)
+
+    if max_price is not None:
+        sql += " AND (o.price_azn <= ? OR o.id IS NULL)"
+        params.append(max_price)
+
+    if city:
+        sql += " AND (LOWER(s.city) = ? OR o.id IS NULL)"
+        params.append(city.lower())
+
+    sql += " ORDER BY p.id DESC"
 
     rows = cur.execute(sql, params).fetchall()
     conn.close()
@@ -203,7 +229,14 @@ def list_offer_price_history(offer_id: int) -> list[dict]:
     return [dict(row) for row in rows]
 
 
-def list_offers(product_id: int | None = None, status: str | None = None) -> list[dict]:
+def list_offers(
+    product_id: int | None = None,
+    status: str | None = None,
+    seller_name: str | None = None,
+    min_price: float | None = None,
+    max_price: float | None = None,
+    city: str | None = None,
+) -> list[dict]:
     conn = get_connection()
     cur = conn.cursor()
     sql = """
@@ -224,6 +257,22 @@ def list_offers(product_id: int | None = None, status: str | None = None) -> lis
         where_clauses.append("o.status = ?")
         params.append(status)
 
+    if seller_name:
+        where_clauses.append("LOWER(s.name) = ?")
+        params.append(seller_name.lower())
+
+    if min_price is not None:
+        where_clauses.append("o.price_azn >= ?")
+        params.append(min_price)
+
+    if max_price is not None:
+        where_clauses.append("o.price_azn <= ?")
+        params.append(max_price)
+
+    if city:
+        where_clauses.append("LOWER(s.city) = ?")
+        params.append(city.lower())
+
     if where_clauses:
         sql += " WHERE " + " AND ".join(where_clauses)
 
@@ -240,8 +289,78 @@ def list_offers(product_id: int | None = None, status: str | None = None) -> lis
     return offers
 
 
+def get_product_card(product_id: int) -> dict:
+    conn = get_connection()
+    cur = conn.cursor()
+
+    product = cur.execute(
+        "SELECT id, title, brand, category, condition FROM products WHERE id = ?",
+        (product_id,),
+    ).fetchone()
+    if not product:
+        conn.close()
+        raise ValueError("Product not found")
+
+    offers = list_offers(product_id=product_id)
+    approved = [offer for offer in offers if offer["status"] == "approved"]
+
+    best_price_approved = min((offer["price_azn"] for offer in approved), default=None)
+
+    conn.close()
+    return {
+        "product": dict(product),
+        "offers_total": len(offers),
+        "offers_approved": len(approved),
+        "best_price_approved": best_price_approved,
+        "offers": offers,
+    }
+
+
+def get_seller_dashboard(seller_name: str) -> dict:
+    conn = get_connection()
+    cur = conn.cursor()
+
+    seller = cur.execute(
+        "SELECT id, name, city, rating FROM sellers WHERE LOWER(name) = ? ORDER BY id DESC LIMIT 1",
+        (seller_name.lower(),),
+    ).fetchone()
+    if not seller:
+        conn.close()
+        raise ValueError("Seller not found")
+
+    offers = list_offers(seller_name=seller["name"])
+    price_rows = cur.execute(
+        """
+        SELECT COUNT(*) AS changes_count
+        FROM price_history ph
+        JOIN offers o ON o.id = ph.offer_id
+        JOIN sellers s ON s.id = o.seller_id
+        WHERE LOWER(s.name) = ?
+        """,
+        (seller_name.lower(),),
+    ).fetchone()
+
+    avg_price = None
+    if offers:
+        avg_price = round(sum(offer["price_azn"] for offer in offers) / len(offers), 2)
+
+    status_counts = {"pending": 0, "approved": 0, "rejected": 0}
+    for offer in offers:
+        status_counts[offer["status"]] = status_counts.get(offer["status"], 0) + 1
+
+    conn.close()
+    return {
+        "seller": dict(seller),
+        "offers_count": len(offers),
+        "status_counts": status_counts,
+        "average_price_azn": avg_price,
+        "price_changes_count": int(price_rows["changes_count"] if price_rows else 0),
+        "offers": offers,
+    }
+
+
 def get_comparison(product_id: int) -> dict:
-    offers = list_offers(product_id, status="approved")
+    offers = list_offers(product_id=product_id, status="approved")
     if not offers:
         raise ValueError("Product not found or no approved offers available")
 

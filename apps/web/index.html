@@ -70,6 +70,42 @@
       </section>
 
       <section class="card">
+        <h2>Catalog filters</h2>
+        <form id="filter-form">
+          <input name="search" placeholder="Search title" />
+          <input name="category" placeholder="Category" />
+          <input name="city" placeholder="City" />
+          <input name="min_price" type="number" min="0" step="0.01" placeholder="Min AZN" />
+          <input name="max_price" type="number" min="0" step="0.01" placeholder="Max AZN" />
+          <select name="condition">
+            <option value="">Any condition</option>
+            <option value="new">New</option>
+            <option value="used">Used</option>
+            <option value="refurbished">Refurbished</option>
+          </select>
+          <button type="submit">Apply filters</button>
+        </form>
+      </section>
+
+      <section class="card">
+        <h2>Product card</h2>
+        <div class="history-actions">
+          <input id="card-product-id" type="number" placeholder="Product ID" />
+          <button id="load-card" type="button">Load product card</button>
+        </div>
+        <pre id="product-card" class="json-box">No product card loaded</pre>
+      </section>
+
+      <section class="card">
+        <h2>Seller dashboard</h2>
+        <div class="history-actions">
+          <input id="dashboard-seller-name" placeholder="Seller name" />
+          <button id="load-dashboard" type="button">Load seller dashboard</button>
+        </div>
+        <pre id="seller-dashboard" class="json-box">No seller dashboard loaded</pre>
+      </section>
+
+      <section class="card">
         <h2>Catalog</h2>
         <button id="refresh">Refresh</button>
         <ul id="products"></ul>

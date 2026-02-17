@@ -9,7 +9,7 @@ body {
 }
 
 .container {
-  max-width: 920px;
+  max-width: 1024px;
   margin: 0 auto;
   padding: 24px;
 }
@@ -64,6 +64,13 @@ li {
   color: #b81f1f;
 }
 
-.offer-status {
-  font-weight: 700;
+.json-box {
+  background: #0e1320;
+  color: #d8e2ff;
+  border-radius: 8px;
+  padding: 12px;
+  overflow: auto;
+  max-height: 260px;
+  font-size: 12px;
+  line-height: 1.35;
 }

@@ -5,12 +5,15 @@ Initial project scaffold for an Azerbaijan-focused product aggregator + marketpl
 ## What is included
 
 - **Python backend API** with SQLite persistence.
-- **Product + offer endpoints** for catalog and price comparison.
+- **Catalog + comparison endpoints** with approved-offer price comparison.
 - **Moderation status flow** (`pending/approved/rejected`) for offers.
 - **Price history tracking** for offers with timeline endpoint.
-- **Simple web UI** to browse products, create offers, moderate status, and update prices.
-- **CSV ingestion script** to import offers from partner feeds.
-- **Automated tests** using standard library + pytest (if available).
+- **Seller cabinet API** (`/api/sellers/{name}/dashboard`) with offer stats and price-change counters.
+- **Product card API** (`/api/products/{id}/card`) with aggregated offer data.
+- **Extended filtering** by price/city/category/condition for products and offers.
+- **Simple web UI** to browse products, apply filters, moderate status, update prices, load product cards and seller dashboards.
+- **CSV + JSON-LD ingestion script** for marketplaces with and without APIs.
+- **Automated tests**.
 
 ## Quick start
 
@@ -29,12 +32,14 @@ python -m unittest discover -s tests
 ## API overview
 
 - `POST /api/products`
-- `GET /api/products`
+- `GET /api/products?search=&category=&condition=&city=&min_price=&max_price=&status=`
+- `GET /api/products/{id}/card`
 - `POST /api/offers`
-- `GET /api/offers`
+- `GET /api/offers?product_id=&status=&seller_name=&city=&min_price=&max_price=`
 - `PATCH /api/offers/{id}/status`
 - `PATCH /api/offers/{id}/price`
 - `GET /api/offers/{id}/price-history`
+- `GET /api/sellers/{name}/dashboard`
 - `GET /api/compare/{product_id}` (uses only approved offers)
 
 ## Import feed examples
@@ -50,18 +55,6 @@ If a marketplace has no API, parse public product page JSON-LD:
 ```bash
 python scripts/import_feed.py --source-url https://example.com/product-page
 ```
-
-CSV columns:
-
-- `title`
-- `brand`
-- `category`
-- `condition` (`new`, `used`, `refurbished`)
-- `seller_name`
-- `seller_city`
-- `price_azn`
-- `currency`
-- `url`
 
 ## Notes for websites without API
 

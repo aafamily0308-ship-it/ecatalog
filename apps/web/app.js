@@ -1,12 +1,25 @@
 const messageBox = document.getElementById('message');
+let activeFilters = {};
 
 function showMessage(text, kind = 'success') {
   messageBox.textContent = text;
   messageBox.className = `message ${kind}`;
 }
 
-async function fetchProducts() {
-  const res = await fetch('/api/products');
+function toQuery(params) {
+  const query = new URLSearchParams();
+  Object.entries(params).forEach(([key, value]) => {
+    if (value !== null && value !== undefined && String(value).trim() !== '') {
+      query.set(key, value);
+    }
+  });
+  return query.toString();
+}
+
+async function fetchProducts(filters = {}) {
+  const query = toQuery({ ...filters, status: 'approved' });
+  const res = await fetch(`/api/products${query ? `?${query}` : ''}`);
+  if (!res.ok) throw new Error(await parseError(res));
   return res.json();
 }
 
@@ -18,9 +31,20 @@ async function fetchComparison(productId) {
 
 async function fetchOfferHistory(offerId) {
   const res = await fetch(`/api/offers/${offerId}/price-history`);
-  if (!res.ok) {
-    throw new Error(await parseError(res));
-  }
+  if (!res.ok) throw new Error(await parseError(res));
+  return res.json();
+}
+
+async function fetchProductCard(productId) {
+  const res = await fetch(`/api/products/${productId}/card`);
+  if (!res.ok) throw new Error(await parseError(res));
+  return res.json();
+}
+
+async function fetchSellerDashboard(sellerName) {
+  const encoded = encodeURIComponent(sellerName);
+  const res = await fetch(`/api/sellers/${encoded}/dashboard`);
+  if (!res.ok) throw new Error(await parseError(res));
   return res.json();
 }
 
@@ -57,7 +81,7 @@ function renderPriceHistory(historyRows) {
 }
 
 async function refreshProducts() {
-  const products = await fetchProducts();
+  const products = await fetchProducts(activeFilters);
   renderProducts(products);
 }
 
@@ -190,5 +214,62 @@ document.getElementById('load-history').addEventListener('click', async () => {
   }
 });
 
-document.getElementById('refresh').addEventListener('click', refreshProducts);
+document.getElementById('filter-form').addEventListener('submit', async (event) => {
+  event.preventDefault();
+  const form = event.target;
+  activeFilters = {
+    search: form.search.value || null,
+    category: form.category.value || null,
+    city: form.city.value || null,
+    min_price: form.min_price.value || null,
+    max_price: form.max_price.value || null,
+    condition: form.condition.value || null,
+  };
+
+  try {
+    await refreshProducts();
+    showMessage('Filters applied');
+  } catch (error) {
+    showMessage(String(error.message || error), 'error');
+  }
+});
+
+document.getElementById('load-card').addEventListener('click', async () => {
+  const productId = Number(document.getElementById('card-product-id').value);
+  if (!productId) {
+    showMessage('Provide product id', 'error');
+    return;
+  }
+
+  try {
+    const card = await fetchProductCard(productId);
+    document.getElementById('product-card').textContent = JSON.stringify(card, null, 2);
+    showMessage('Product card loaded');
+  } catch (error) {
+    showMessage(String(error.message || error), 'error');
+  }
+});
+
+document.getElementById('load-dashboard').addEventListener('click', async () => {
+  const sellerName = document.getElementById('dashboard-seller-name').value.trim();
+  if (!sellerName) {
+    showMessage('Provide seller name', 'error');
+    return;
+  }
+
+  try {
+    const dashboard = await fetchSellerDashboard(sellerName);
+    document.getElementById('seller-dashboard').textContent = JSON.stringify(dashboard, null, 2);
+    showMessage('Seller dashboard loaded');
+  } catch (error) {
+    showMessage(String(error.message || error), 'error');
+  }
+});
+
+document.getElementById('refresh').addEventListener('click', async () => {
+  activeFilters = {};
+  await refreshProducts();
+  showMessage('Catalog refreshed');
+});
+
 refreshProducts();

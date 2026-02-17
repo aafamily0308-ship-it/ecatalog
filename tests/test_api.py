@@ -9,7 +9,10 @@ from apps.api.repository import (
     create_offer,
     create_product,
     get_comparison,
+    get_product_card,
+    get_seller_dashboard,
     list_offer_price_history,
+    list_offers,
     list_products,
     update_offer_price,
 )
@@ -53,7 +56,7 @@ class ApiFlowTests(unittest.TestCase):
             ProductCreate(title="Lenovo ThinkPad", brand="Lenovo", category="laptops", condition="used")
         )
 
-        filtered = list_products(condition="used")
+        filtered = list_products(condition="used", status=None)
         self.assertEqual(len(filtered), 1)
         self.assertEqual(filtered[0]["title"], "Lenovo ThinkPad")
 
@@ -78,6 +81,31 @@ class ApiFlowTests(unittest.TestCase):
         self.assertEqual(history[1]["old_price_azn"], 1900)
         self.assertEqual(history[1]["new_price_azn"], 1850)
 
+    def test_seller_dashboard_and_product_card(self) -> None:
+        product = create_product(
+            ProductCreate(title="PS5", brand="Sony", category="consoles", condition="new")
+        )
+        offer = create_offer(
+            OfferCreate(
+                product_id=product["id"],
+                seller=SellerCreate(name="ConsoleHouse", city="Baku"),
+                price_azn=999,
+            )
+        )
+
+        card = get_product_card(product["id"])
+        self.assertEqual(card["offers_total"], 1)
+        self.assertEqual(card["offers_approved"], 0)
+
+        dashboard = get_seller_dashboard("ConsoleHouse")
+        self.assertEqual(dashboard["offers_count"], 1)
+        self.assertEqual(dashboard["status_counts"]["pending"], 1)
+        self.assertEqual(dashboard["price_changes_count"], 1)
+
+        offers = list_offers(seller_name="ConsoleHouse")
+        self.assertEqual(len(offers), 1)
+        self.assertEqual(offers[0]["id"], offer["id"])
+
 
 class ApiHttpValidationTests(unittest.TestCase):
     def setUp(self) -> None:
@@ -90,7 +118,13 @@ class ApiHttpValidationTests(unittest.TestCase):
         environ = {}
         setup_testing_defaults(environ)
         environ["REQUEST_METHOD"] = method
-        environ["PATH_INFO"] = path
+        if "?" in path:
+            path_info, query_string = path.split("?", 1)
+        else:
+            path_info, query_string = path, ""
+
+        environ["PATH_INFO"] = path_info
+        environ["QUERY_STRING"] = query_string
 
         body = b""
         if payload is not None:
@@ -175,6 +209,55 @@ class ApiHttpValidationTests(unittest.TestCase):
         self.assertEqual(len(history), 2)
         self.assertEqual(history[1]["old_price_azn"], 2100)
         self.assertEqual(history[1]["new_price_azn"], 2050)
+
+    def test_product_filters_and_seller_dashboard_endpoint(self) -> None:
+        _, p1 = self._request(
+            "POST",
+            "/api/products",
+            {"title": "Dell XPS", "brand": "Dell", "category": "laptops", "condition": "used"},
+        )
+        _, p2 = self._request(
+            "POST",
+            "/api/products",
+            {"title": "Asus Zenbook", "brand": "Asus", "category": "laptops", "condition": "new"},
+        )
+        _, o1 = self._request(
+            "POST",
+            "/api/offers",
+            {
+                "product_id": p1["id"],
+                "seller": {"name": "NotebookHub", "city": "Baku"},
+                "price_azn": 1400,
+                "currency": "AZN",
+            },
+        )
+        self._request("PATCH", f"/api/offers/{o1['id']}/status", {"status": "approved"})
+        _, o2 = self._request(
+            "POST",
+            "/api/offers",
+            {
+                "product_id": p2["id"],
+                "seller": {"name": "NotebookHub", "city": "Baku"},
+                "price_azn": 2200,
+                "currency": "AZN",
+            },
+        )
+        self._request("PATCH", f"/api/offers/{o2['id']}/status", {"status": "approved"})
+
+        status, products = self._request(
+            "GET", "/api/products?category=laptops&min_price=1300&max_price=2000&city=Baku&status=approved"
+        )
+        self.assertTrue(status.startswith("200"))
+        self.assertEqual(len(products), 1)
+        self.assertEqual(products[0]["title"], "Dell XPS")
+
+        status, dashboard = self._request("GET", "/api/sellers/NotebookHub/dashboard")
+        self.assertTrue(status.startswith("200"))
+        self.assertEqual(dashboard["offers_count"], 2)
+
+        status, card = self._request("GET", f"/api/products/{p1['id']}/card")
+        self.assertTrue(status.startswith("200"))
+        self.assertEqual(card["offers_approved"], 1)
 
 
 if __name__ == "__main__":
