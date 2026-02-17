@@ -5,7 +5,7 @@ Initial project scaffold for an Azerbaijan-focused product aggregator + marketpl
 ## Current state
 
 - ✅ **Phase 1 complete**: catalog/filtering, moderation, price history, product cards, seller dashboard.
-- 🚧 **Phase 2 started**: reviews/ratings, seller verification, price alerts, fraud signals.
+- ✅ **Phase 2 (MVP scope) complete**: reviews/ratings, seller verification, price alerts, fraud registry + auto-scan + alert processing.
 
 ## What is included
 
@@ -21,9 +21,11 @@ Initial project scaffold for an Azerbaijan-focused product aggregator + marketpl
 - **Retention APIs**:
   - `POST /api/alerts`
   - `GET /api/alerts`
+  - `POST /api/alerts/process`
 - **Fraud signal APIs**:
   - `POST /api/fraud-signals`
   - `GET /api/fraud-signals`
+  - `POST /api/fraud-signals/auto-scan`
 - **Simple web UI** for product/offer management, moderation, trust workflows and analytics views.
 - **CSV + JSON-LD ingestion script** for marketplaces with and without APIs.
 - **Automated tests**.
@@ -64,3 +66,12 @@ The report includes:
 - `/health` response,
 - `/api/diagnostics/summary` snapshot,
 - tail of runtime logs.
+
+
+## Phase readiness check (Phase 1 + 2)
+
+```bash
+python scripts/check_phases.py --base-url http://127.0.0.1:8000
+```
+
+Outputs a JSON report with `phase1_ok` and `phase2_ok` flags.

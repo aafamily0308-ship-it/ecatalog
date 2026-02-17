@@ -132,6 +132,27 @@ class ApiHttpValidationTests(unittest.TestCase):
         self.assertIn("latest_fraud_signals", diag)
         self.assertIn("log_file", diag)
 
+
+    def test_phase2_processing_endpoints(self) -> None:
+        _, product = self._request("POST", "/api/products", {"title": "Monitor LG", "brand": "LG", "category": "monitors", "condition": "new"})
+        _, offer_low = self._request("POST", "/api/offers", {
+            "product_id": product["id"], "seller": {"name": "DisplayStore", "city": "Baku"}, "price_azn": 300, "currency": "AZN"
+        })
+        _, offer_high = self._request("POST", "/api/offers", {
+            "product_id": product["id"], "seller": {"name": "DisplayStore", "city": "Baku"}, "price_azn": 600, "currency": "AZN"
+        })
+        self._request("PATCH", f"/api/offers/{offer_low['id']}/status", {"status": "approved"})
+        self._request("PATCH", f"/api/offers/{offer_high['id']}/status", {"status": "approved"})
+
+        self._request("POST", "/api/alerts", {"product_id": product["id"], "target_price_azn": 350, "contact_email": "ops@example.com"})
+        status, process = self._request("POST", "/api/alerts/process")
+        self.assertTrue(status.startswith("200"))
+        self.assertGreaterEqual(process["triggered_count"], 1)
+
+        status, scan = self._request("POST", "/api/fraud-signals/auto-scan", {"min_drop_ratio": 0.3, "min_risk": 0.6})
+        self.assertTrue(status.startswith("200"))
+        self.assertIn("created_signals", scan)
+
     def test_phase2_http_endpoints(self) -> None:
         _, product = self._request("POST", "/api/products", {"title": "iPhone 15", "brand": "Apple", "category": "phones", "condition": "new"})
         _, offer = self._request("POST", "/api/offers", {

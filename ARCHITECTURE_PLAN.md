@@ -414,7 +414,7 @@ UI-паттерны:
 - антифрод-правила и риск-скоринг,
 - полноценная монетизация и BI.
 
-## 14) Phase 2 start status (implemented now)
+## 14) Phase 2 completion status (MVP scope)
 
 Запущены ключевые элементы Trust & Retention:
 - ✅ Seller verification levels (`unverified/basic/verified`).
@@ -423,3 +423,7 @@ UI-паттерны:
 - ✅ Fraud signal registry (тип сигнала, risk_score, детали).
 
 Таким образом, Phase 2 начата на уровне backend + web workflows и тестов.
+
+- ✅ Alert processing job endpoint (`POST /api/alerts/process`).
+- ✅ Auto-scan anti-fraud v1 rule endpoint (`POST /api/fraud-signals/auto-scan`).
+- ✅ Phase check automation script for Phase 1/2 validation.

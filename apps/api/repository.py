@@ -475,6 +475,100 @@ def create_fraud_signal(
     return dict(row)
 
 
+
+
+def process_price_alerts() -> dict:
+    conn = get_connection()
+    cur = conn.cursor()
+
+    rows = cur.execute(
+        """
+        SELECT pa.id, pa.product_id, pa.target_price_azn, pa.contact_email,
+               MIN(o.price_azn) AS best_price
+        FROM price_alerts pa
+        LEFT JOIN offers o ON o.product_id = pa.product_id AND o.status = 'approved'
+        WHERE pa.is_active = 1
+        GROUP BY pa.id, pa.product_id, pa.target_price_azn, pa.contact_email
+        """
+    ).fetchall()
+
+    triggered: list[dict] = []
+    checked = 0
+    for row in rows:
+        checked += 1
+        best_price = row["best_price"]
+        if best_price is None:
+            continue
+        if float(best_price) <= float(row["target_price_azn"]):
+            cur.execute("UPDATE price_alerts SET is_active = 0 WHERE id = ?", (row["id"],))
+            triggered.append(
+                {
+                    "alert_id": row["id"],
+                    "product_id": row["product_id"],
+                    "target_price_azn": row["target_price_azn"],
+                    "best_price_azn": float(best_price),
+                    "contact_email": row["contact_email"],
+                }
+            )
+
+    conn.commit()
+    conn.close()
+    return {"checked": checked, "triggered_count": len(triggered), "triggered": triggered}
+
+
+def auto_scan_fraud_signals(*, min_drop_ratio: float = 0.35, min_risk: float = 0.6) -> dict:
+    conn = get_connection()
+    cur = conn.cursor()
+
+    offers = cur.execute(
+        """
+        SELECT o.id AS offer_id, o.price_azn, o.product_id, s.id AS seller_id, s.name AS seller_name,
+               AVG(o2.price_azn) AS market_avg
+        FROM offers o
+        JOIN sellers s ON s.id = o.seller_id
+        LEFT JOIN offers o2 ON o2.product_id = o.product_id AND o2.status = 'approved'
+        WHERE o.status = 'approved'
+        GROUP BY o.id, o.price_azn, o.product_id, s.id, s.name
+        """
+    ).fetchall()
+
+    created = []
+    for row in offers:
+        market_avg = row["market_avg"]
+        if market_avg is None or market_avg <= 0:
+            continue
+        drop_ratio = (float(market_avg) - float(row["price_azn"])) / float(market_avg)
+        if drop_ratio >= min_drop_ratio:
+            risk_score = max(min(drop_ratio, 1.0), min_risk)
+            signal_type = "suspicious_price_drop"
+            exists = cur.execute(
+                """
+                SELECT id FROM fraud_signals
+                WHERE offer_id = ? AND signal_type = ?
+                ORDER BY id DESC LIMIT 1
+                """,
+                (row["offer_id"], signal_type),
+            ).fetchone()
+            if exists:
+                continue
+
+            details = f"Price drop ratio={drop_ratio:.2f}, market_avg={float(market_avg):.2f}, offer_price={float(row['price_azn']):.2f}"
+            cur.execute(
+                "INSERT INTO fraud_signals (offer_id, seller_id, signal_type, risk_score, details) VALUES (?, ?, ?, ?, ?)",
+                (row["offer_id"], row["seller_id"], signal_type, float(risk_score), details),
+            )
+            created.append(
+                {
+                    "offer_id": row["offer_id"],
+                    "seller_name": row["seller_name"],
+                    "risk_score": float(risk_score),
+                }
+            )
+
+    conn.commit()
+    conn.close()
+    return {"scanned_offers": len(offers), "created_signals": len(created), "signals": created}
+
 def list_fraud_signals(min_risk_score: float | None = None) -> list[dict]:
     conn = get_connection()
     cur = conn.cursor()

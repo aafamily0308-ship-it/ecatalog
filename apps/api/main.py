@@ -12,6 +12,7 @@ from apps.api.repository import (
     create_offer,
     create_price_alert,
     create_product,
+    auto_scan_fraud_signals,
     get_comparison,
     get_diagnostics_snapshot,
     get_product_card,
@@ -20,6 +21,7 @@ from apps.api.repository import (
     list_offer_price_history,
     list_offers,
     list_price_alerts,
+    process_price_alerts,
     list_products,
     list_seller_reviews,
     set_seller_verification,
@@ -357,6 +359,9 @@ def application(environ, start_response):
         email = query.get("contact_email", [None])[0]
         return json_response(start_response, "200 OK", list_price_alerts(email))
 
+    if path == "/api/alerts/process" and method == "POST":
+        return json_response(start_response, "200 OK", process_price_alerts())
+
     if path == "/api/fraud-signals" and method == "POST":
         data = parse_json_body(environ)
         if not _is_valid_text(data.get("signal_type"), min_len=3, max_len=60):
@@ -391,6 +396,22 @@ def application(environ, start_response):
             )
         except ValueError as exc:
             return json_response(start_response, "404 Not Found", {"error": str(exc)})
+
+    if path == "/api/fraud-signals/auto-scan" and method == "POST":
+        data = parse_json_body(environ)
+        min_drop_ratio = data.get("min_drop_ratio", 0.35)
+        min_risk = data.get("min_risk", 0.6)
+        try:
+            min_drop_ratio = float(min_drop_ratio)
+            min_risk = float(min_risk)
+        except (TypeError, ValueError):
+            return json_response(start_response, "400 Bad Request", {"error": "Invalid scan params"})
+
+        if not (0 <= min_drop_ratio <= 1 and 0 <= min_risk <= 1):
+            return json_response(start_response, "400 Bad Request", {"error": "Invalid scan params"})
+
+        result = auto_scan_fraud_signals(min_drop_ratio=min_drop_ratio, min_risk=min_risk)
+        return json_response(start_response, "200 OK", result)
 
     if path == "/api/fraud-signals" and method == "GET":
         query = parse_qs(environ.get("QUERY_STRING", ""))

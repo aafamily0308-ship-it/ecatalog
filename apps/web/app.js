@@ -237,3 +237,22 @@ document.getElementById('refresh').addEventListener('click', async () => {
 });
 
 refreshProducts();
+
+
+document.getElementById('process-alerts').addEventListener('click', async () => {
+  try {
+    const res = await requestJson('/api/alerts/process', { method: 'POST' });
+    showMessage(`Processed alerts: ${res.checked}, triggered: ${res.triggered_count}`);
+    document.getElementById('alerts-box').textContent = JSON.stringify(res, null, 2);
+  } catch (e) { showMessage(e.message, 'error'); }
+});
+
+document.getElementById('auto-scan-fraud').addEventListener('click', async () => {
+  try {
+    const res = await requestJson('/api/fraud-signals/auto-scan', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ min_drop_ratio: 0.35, min_risk: 0.6 }),
+    });
+    showMessage(`Fraud scan complete. New signals: ${res.created_signals}`);
+    document.getElementById('fraud-box').textContent = JSON.stringify(res, null, 2);
+  } catch (e) { showMessage(e.message, 'error'); }
+});
