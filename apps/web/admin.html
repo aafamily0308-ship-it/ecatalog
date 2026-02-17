@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>eCatalog Admin</title>
+    <link rel="stylesheet" href="/web/styles.css" />
+  </head>
+  <body>
+    <main class="container">
+      <header class="hero">
+        <div>
+          <h1>Admin Panel</h1>
+          <p>Manage staged data, publish catalog entries, and moderate live offers.</p>
+        </div>
+        <a class="admin-link" href="/">Open Public Site</a>
+      </header>
+
+      <p id="admin-message" class="message" aria-live="polite"></p>
+
+      <section class="card">
+        <h2>Quick add to public catalog</h2>
+        <div class="split-grid">
+          <form id="public-product-form" class="grid-form">
+            <h3>Create product</h3>
+            <input name="title" placeholder="Product title" required />
+            <input name="brand" placeholder="Brand" />
+            <input name="category" placeholder="Category" />
+            <select name="condition">
+              <option value="new">New</option>
+              <option value="used">Used</option>
+              <option value="refurbished">Refurbished</option>
+            </select>
+            <button type="submit">Create product</button>
+          </form>
+
+          <form id="public-offer-form" class="grid-form">
+            <h3>Create offer</h3>
+            <input name="product_id" type="number" placeholder="Product ID" required />
+            <input name="seller_name" placeholder="Seller name" required />
+            <input name="seller_city" placeholder="Seller city" />
+            <input name="price_azn" type="number" min="1" step="0.01" placeholder="Price AZN" required />
+            <input name="url" placeholder="Offer URL" />
+            <button type="submit">Create offer</button>
+          </form>
+        </div>
+      </section>
+
+      <section class="card">
+        <h2>Staging zone</h2>
+        <div class="split-grid">
+          <form id="stage-product-form" class="grid-form">
+            <h3>Stage product manually</h3>
+            <input name="title" placeholder="Product title" required />
+            <input name="brand" placeholder="Brand" />
+            <input name="category" placeholder="Category" />
+            <select name="condition"><option value="new">New</option><option value="used">Used</option><option value="refurbished">Refurbished</option></select>
+            <button type="submit">Stage product</button>
+          </form>
+
+          <form id="stage-offer-form" class="grid-form">
+            <h3>Stage offer manually</h3>
+            <input name="staged_product_id" type="number" placeholder="Staged Product ID" required />
+            <input name="seller_name" placeholder="Seller name" required />
+            <input name="seller_city" placeholder="Seller city" />
+            <input name="price_azn" type="number" min="1" step="0.01" placeholder="Price AZN" required />
+            <input name="url" placeholder="Offer URL" />
+            <button type="submit">Stage offer</button>
+          </form>
+        </div>
+        <form id="parse-form" class="grid-form">
+          <h3>Parse product page JSON-LD</h3>
+          <input name="source_url" placeholder="https://example.com/product-page" required />
+          <button type="submit">Parse and stage</button>
+        </form>
+      </section>
+
+      <section class="card">
+        <h2>Staged products</h2>
+        <div class="history-actions">
+          <button id="refresh-staged" type="button">Refresh staged list</button>
+        </div>
+        <div id="staged-products-grid" class="catalog-grid"></div>
+      </section>
+
+      <section class="card">
+        <h2>Offer moderation</h2>
+        <form id="moderation-filter-form" class="grid-form">
+          <select name="status">
+            <option value="pending">Pending</option>
+            <option value="approved">Approved</option>
+            <option value="rejected">Rejected</option>
+          </select>
+          <input name="seller_name" placeholder="Seller exact name" />
+          <input name="city" placeholder="City" />
+          <button type="submit">Load offers</button>
+        </form>
+        <div class="table-wrap">
+          <table class="admin-table">
+            <thead>
+              <tr>
+                <th>ID</th>
+                <th>Product</th>
+                <th>Seller</th>
+                <th>Price</th>
+                <th>Status</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody id="offers-table-body"></tbody>
+          </table>
+        </div>
+      </section>
+
+      <section class="card">
+        <h2>AI agent (next step)</h2>
+        <p class="muted">Recommended as a separate module: ingestion assistant (parsing + dedupe), moderation copilot (risk scoring + explanations), and operator chat over catalog data.</p>
+      </section>
+    </main>
+
+    <script src="/web/admin.js"></script>
+  </body>
+</html>
