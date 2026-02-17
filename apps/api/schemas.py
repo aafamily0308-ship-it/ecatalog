@@ -3,8 +3,11 @@ from typing import Literal
 
 ProductCondition = Literal["new", "used", "refurbished"]
 OfferStatus = Literal["pending", "approved", "rejected"]
+VerificationLevel = Literal["unverified", "basic", "verified"]
+
 VALID_CONDITIONS = {"new", "used", "refurbished"}
 VALID_OFFER_STATUSES = {"pending", "approved", "rejected"}
+VALID_VERIFICATION_LEVELS = {"unverified", "basic", "verified"}
 
 
 @dataclass(slots=True)

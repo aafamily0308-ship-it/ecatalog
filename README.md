@@ -2,6 +2,11 @@
 
 Initial project scaffold for an Azerbaijan-focused product aggregator + marketplace (new and used items).
 
+## Current state
+
+- ✅ **Phase 1 complete**: catalog/filtering, moderation, price history, product cards, seller dashboard.
+- 🚧 **Phase 2 started**: reviews/ratings, seller verification, price alerts, fraud signals.
+
 ## What is included
 
 - **Python backend API** with SQLite persistence.
@@ -9,9 +14,17 @@ Initial project scaffold for an Azerbaijan-focused product aggregator + marketpl
 - **Moderation status flow** (`pending/approved/rejected`) for offers.
 - **Price history tracking** for offers with timeline endpoint.
 - **Seller cabinet API** (`/api/sellers/{name}/dashboard`) with offer stats and price-change counters.
-- **Product card API** (`/api/products/{id}/card`) with aggregated offer data.
-- **Extended filtering** by price/city/category/condition for products and offers.
-- **Simple web UI** to browse products, apply filters, moderate status, update prices, load product cards and seller dashboards.
+- **Seller trust APIs**:
+  - `PATCH /api/sellers/{name}/verify`
+  - `POST /api/sellers/{name}/reviews`
+  - `GET /api/sellers/{name}/reviews`
+- **Retention APIs**:
+  - `POST /api/alerts`
+  - `GET /api/alerts`
+- **Fraud signal APIs**:
+  - `POST /api/fraud-signals`
+  - `GET /api/fraud-signals`
+- **Simple web UI** for product/offer management, moderation, trust workflows and analytics views.
 - **CSV + JSON-LD ingestion script** for marketplaces with and without APIs.
 - **Automated tests**.
 
@@ -28,35 +41,3 @@ Then open http://127.0.0.1:8000.
 ```bash
 python -m unittest discover -s tests
 ```
-
-## API overview
-
-- `POST /api/products`
-- `GET /api/products?search=&category=&condition=&city=&min_price=&max_price=&status=`
-- `GET /api/products/{id}/card`
-- `POST /api/offers`
-- `GET /api/offers?product_id=&status=&seller_name=&city=&min_price=&max_price=`
-- `PATCH /api/offers/{id}/status`
-- `PATCH /api/offers/{id}/price`
-- `GET /api/offers/{id}/price-history`
-- `GET /api/sellers/{name}/dashboard`
-- `GET /api/compare/{product_id}` (uses only approved offers)
-
-## Import feed examples
-
-CSV import:
-
-```bash
-python scripts/import_feed.py --file sample_feed.csv
-```
-
-If a marketplace has no API, parse public product page JSON-LD:
-
-```bash
-python scripts/import_feed.py --source-url https://example.com/product-page
-```
-
-## Notes for websites without API
-
-Many e-commerce pages expose `application/ld+json` Product/Offer metadata for SEO.
-The importer supports extracting offers from this JSON-LD when direct API feeds are unavailable.

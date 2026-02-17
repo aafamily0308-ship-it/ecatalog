@@ -413,3 +413,13 @@ UI-паттерны:
 - расширенная trust-система (отзывы, верификация),
 - антифрод-правила и риск-скоринг,
 - полноценная монетизация и BI.
+
+## 14) Phase 2 start status (implemented now)
+
+Запущены ключевые элементы Trust & Retention:
+- ✅ Seller verification levels (`unverified/basic/verified`).
+- ✅ Seller reviews + автоматический пересчет рейтинга и review_count.
+- ✅ Price alerts (целевая цена + email контакт).
+- ✅ Fraud signal registry (тип сигнала, risk_score, детали).
+
+Таким образом, Phase 2 начата на уровне backend + web workflows и тестов.

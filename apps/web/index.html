@@ -10,106 +10,83 @@
     <main class="container">
       <header>
         <h1>eCatalog Azerbaijan MVP</h1>
-        <p>Compare prices for new and used products in one place.</p>
+        <p>Phase 2 started: trust, reviews, verification, alerts, fraud signals.</p>
       </header>
 
       <p id="message" class="message" aria-live="polite"></p>
 
-      <section class="card">
-        <h2>Add product</h2>
-        <form id="product-form">
+      <section class="card"><h2>Add product</h2><form id="product-form">
           <input name="title" placeholder="Product title" required />
           <input name="brand" placeholder="Brand" />
           <input name="category" placeholder="Category" />
-          <select name="condition">
-            <option value="new">New</option>
-            <option value="used">Used</option>
-            <option value="refurbished">Refurbished</option>
-          </select>
-          <button type="submit">Create product</button>
-        </form>
-      </section>
+          <select name="condition"><option value="new">New</option><option value="used">Used</option><option value="refurbished">Refurbished</option></select>
+          <button type="submit">Create product</button></form></section>
 
-      <section class="card">
-        <h2>Add offer</h2>
-        <form id="offer-form">
+      <section class="card"><h2>Add offer</h2><form id="offer-form">
           <input name="product_id" type="number" placeholder="Product ID" required />
           <input name="seller_name" placeholder="Seller name" required />
           <input name="seller_city" placeholder="City" />
           <input name="price_azn" type="number" min="1" step="0.01" placeholder="Price (AZN)" required />
           <input name="url" placeholder="Offer URL" />
-          <button type="submit">Add offer</button>
-        </form>
-      </section>
+          <button type="submit">Add offer</button></form></section>
 
-      <section class="card">
-        <h2>Moderation</h2>
-        <form id="moderation-form">
+      <section class="card"><h2>Moderation</h2><form id="moderation-form">
           <input name="offer_id" type="number" placeholder="Offer ID" required />
-          <select name="status">
-            <option value="approved">Approve</option>
-            <option value="rejected">Reject</option>
-            <option value="pending">Set pending</option>
-          </select>
-          <button type="submit">Update status</button>
-        </form>
-      </section>
+          <select name="status"><option value="approved">Approve</option><option value="rejected">Reject</option><option value="pending">Set pending</option></select>
+          <button type="submit">Update status</button></form></section>
 
-      <section class="card">
-        <h2>Price updates</h2>
-        <form id="price-form">
+      <section class="card"><h2>Price updates</h2><form id="price-form">
           <input name="offer_id" type="number" placeholder="Offer ID" required />
           <input name="price_azn" type="number" min="1" step="0.01" placeholder="New price (AZN)" required />
-          <button type="submit">Update price</button>
-        </form>
-        <div class="history-actions">
-          <input id="history-offer-id" type="number" placeholder="Offer ID for history" />
-          <button id="load-history" type="button">Load price history</button>
-        </div>
+          <button type="submit">Update price</button></form>
+        <div class="history-actions"><input id="history-offer-id" type="number" placeholder="Offer ID for history" /><button id="load-history" type="button">Load price history</button></div>
         <ul id="price-history"></ul>
       </section>
 
-      <section class="card">
-        <h2>Catalog filters</h2>
-        <form id="filter-form">
+      <section class="card"><h2>Phase 2 trust tools</h2>
+        <form id="verify-form">
+          <input name="seller_name" placeholder="Seller name" required />
+          <select name="verification_level"><option value="basic">Basic</option><option value="verified">Verified</option><option value="unverified">Unverified</option></select>
+          <button type="submit">Set verification</button>
+        </form>
+        <form id="review-form">
+          <input name="seller_name" placeholder="Seller name" required />
+          <input name="reviewer_name" placeholder="Reviewer" required />
+          <input name="score" type="number" min="1" max="5" placeholder="Score 1-5" required />
+          <input name="comment" placeholder="Comment" />
+          <button type="submit">Add review</button>
+        </form>
+        <form id="alert-form">
+          <input name="product_id" type="number" placeholder="Product ID" required />
+          <input name="target_price_azn" type="number" min="1" step="0.01" placeholder="Target price" required />
+          <input name="contact_email" placeholder="Email" required />
+          <button type="submit">Create alert</button>
+        </form>
+        <form id="fraud-form">
+          <input name="offer_id" type="number" placeholder="Offer ID (optional)" />
+          <input name="seller_name" placeholder="Seller name (optional)" />
+          <input name="signal_type" placeholder="Signal type" required />
+          <input name="risk_score" type="number" min="0" max="1" step="0.01" placeholder="Risk 0-1" required />
+          <input name="details" placeholder="Details" />
+          <button type="submit">Add fraud signal</button>
+        </form>
+      </section>
+
+      <section class="card"><h2>Catalog filters</h2><form id="filter-form">
           <input name="search" placeholder="Search title" />
           <input name="category" placeholder="Category" />
           <input name="city" placeholder="City" />
           <input name="min_price" type="number" min="0" step="0.01" placeholder="Min AZN" />
           <input name="max_price" type="number" min="0" step="0.01" placeholder="Max AZN" />
-          <select name="condition">
-            <option value="">Any condition</option>
-            <option value="new">New</option>
-            <option value="used">Used</option>
-            <option value="refurbished">Refurbished</option>
-          </select>
-          <button type="submit">Apply filters</button>
-        </form>
-      </section>
+          <select name="condition"><option value="">Any condition</option><option value="new">New</option><option value="used">Used</option><option value="refurbished">Refurbished</option></select>
+          <button type="submit">Apply filters</button></form></section>
 
-      <section class="card">
-        <h2>Product card</h2>
-        <div class="history-actions">
-          <input id="card-product-id" type="number" placeholder="Product ID" />
-          <button id="load-card" type="button">Load product card</button>
-        </div>
-        <pre id="product-card" class="json-box">No product card loaded</pre>
-      </section>
+      <section class="card"><h2>Product card</h2><div class="history-actions"><input id="card-product-id" type="number" placeholder="Product ID" /><button id="load-card" type="button">Load product card</button></div><pre id="product-card" class="json-box">No product card loaded</pre></section>
+      <section class="card"><h2>Seller dashboard</h2><div class="history-actions"><input id="dashboard-seller-name" placeholder="Seller name" /><button id="load-dashboard" type="button">Load seller dashboard</button></div><pre id="seller-dashboard" class="json-box">No seller dashboard loaded</pre></section>
+      <section class="card"><h2>Seller reviews</h2><div class="history-actions"><input id="reviews-seller-name" placeholder="Seller name" /><button id="load-reviews" type="button">Load reviews</button></div><pre id="seller-reviews" class="json-box">No reviews loaded</pre></section>
+      <section class="card"><h2>Alerts & Fraud signals</h2><div class="history-actions"><input id="alerts-email" placeholder="Email for alerts" /><button id="load-alerts" type="button">Load alerts</button></div><pre id="alerts-box" class="json-box">No alerts loaded</pre><div class="history-actions"><input id="fraud-min-risk" type="number" min="0" max="1" step="0.01" placeholder="Min risk score" /><button id="load-fraud" type="button">Load fraud signals</button></div><pre id="fraud-box" class="json-box">No fraud signals loaded</pre></section>
 
-      <section class="card">
-        <h2>Seller dashboard</h2>
-        <div class="history-actions">
-          <input id="dashboard-seller-name" placeholder="Seller name" />
-          <button id="load-dashboard" type="button">Load seller dashboard</button>
-        </div>
-        <pre id="seller-dashboard" class="json-box">No seller dashboard loaded</pre>
-      </section>
-
-      <section class="card">
-        <h2>Catalog</h2>
-        <button id="refresh">Refresh</button>
-        <ul id="products"></ul>
-      </section>
+      <section class="card"><h2>Catalog</h2><button id="refresh">Refresh</button><ul id="products"></ul></section>
     </main>
 
     <script src="/web/app.js"></script>

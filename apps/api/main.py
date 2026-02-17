@@ -4,14 +4,21 @@ from urllib.parse import parse_qs
 from wsgiref.simple_server import make_server
 
 from apps.api.repository import (
+    add_seller_review,
+    create_fraud_signal,
     create_offer,
+    create_price_alert,
     create_product,
     get_comparison,
     get_product_card,
     get_seller_dashboard,
+    list_fraud_signals,
     list_offer_price_history,
     list_offers,
+    list_price_alerts,
     list_products,
+    list_seller_reviews,
+    set_seller_verification,
     update_offer_price,
     update_offer_status,
 )
@@ -22,6 +29,7 @@ from apps.api.schemas import (
     SellerCreate,
     VALID_CONDITIONS,
     VALID_OFFER_STATUSES,
+    VALID_VERIFICATION_LEVELS,
 )
 from apps.api.storage import init_db
 
@@ -51,6 +59,10 @@ def _is_valid_text(value: object, *, min_len: int = 2, max_len: int = 200) -> bo
         return False
     value = value.strip()
     return min_len <= len(value) <= max_len
+
+
+def _is_valid_email(value: object) -> bool:
+    return isinstance(value, str) and "@" in value and "." in value and len(value) >= 6
 
 
 def _is_valid_price(value: object) -> bool:
@@ -269,6 +281,108 @@ def application(environ, start_response):
             return json_response(start_response, "200 OK", get_seller_dashboard(seller_name))
         except ValueError as exc:
             return json_response(start_response, "404 Not Found", {"error": str(exc)})
+
+    if path.startswith("/api/sellers/") and path.endswith("/verify") and method == "PATCH":
+        seller_name = path.split("/")[3]
+        data = parse_json_body(environ)
+        level = data.get("verification_level")
+        if level not in VALID_VERIFICATION_LEVELS:
+            return json_response(start_response, "400 Bad Request", {"error": "Invalid verification_level"})
+        try:
+            return json_response(start_response, "200 OK", set_seller_verification(seller_name, level))
+        except ValueError as exc:
+            return json_response(start_response, "404 Not Found", {"error": str(exc)})
+
+    if path.startswith("/api/sellers/") and path.endswith("/reviews") and method == "POST":
+        seller_name = path.split("/")[3]
+        data = parse_json_body(environ)
+        if not _is_valid_text(data.get("reviewer_name"), min_len=2, max_len=120):
+            return json_response(start_response, "400 Bad Request", {"error": "Invalid reviewer_name"})
+        score = data.get("score")
+        if not isinstance(score, int) or score < 1 or score > 5:
+            return json_response(start_response, "400 Bad Request", {"error": "Invalid score"})
+        comment = data.get("comment")
+        if comment is not None and not isinstance(comment, str):
+            return json_response(start_response, "400 Bad Request", {"error": "Invalid comment"})
+        try:
+            return json_response(
+                start_response,
+                "201 Created",
+                add_seller_review(seller_name, data["reviewer_name"].strip(), score, comment.strip() if isinstance(comment, str) else None),
+            )
+        except ValueError as exc:
+            return json_response(start_response, "404 Not Found", {"error": str(exc)})
+
+    if path.startswith("/api/sellers/") and path.endswith("/reviews") and method == "GET":
+        seller_name = path.split("/")[3]
+        try:
+            return json_response(start_response, "200 OK", list_seller_reviews(seller_name))
+        except ValueError as exc:
+            return json_response(start_response, "404 Not Found", {"error": str(exc)})
+
+    if path == "/api/alerts" and method == "POST":
+        data = parse_json_body(environ)
+        if not isinstance(data.get("product_id"), int) or data["product_id"] <= 0:
+            return json_response(start_response, "400 Bad Request", {"error": "Invalid product_id"})
+        if not _is_valid_price(data.get("target_price_azn")):
+            return json_response(start_response, "400 Bad Request", {"error": "Invalid target_price_azn"})
+        if not _is_valid_email(data.get("contact_email")):
+            return json_response(start_response, "400 Bad Request", {"error": "Invalid contact_email"})
+        try:
+            return json_response(
+                start_response,
+                "201 Created",
+                create_price_alert(data["product_id"], float(data["target_price_azn"]), data["contact_email"]),
+            )
+        except ValueError as exc:
+            return json_response(start_response, "400 Bad Request", {"error": str(exc)})
+
+    if path == "/api/alerts" and method == "GET":
+        query = parse_qs(environ.get("QUERY_STRING", ""))
+        email = query.get("contact_email", [None])[0]
+        return json_response(start_response, "200 OK", list_price_alerts(email))
+
+    if path == "/api/fraud-signals" and method == "POST":
+        data = parse_json_body(environ)
+        if not _is_valid_text(data.get("signal_type"), min_len=3, max_len=60):
+            return json_response(start_response, "400 Bad Request", {"error": "Invalid signal_type"})
+        risk_score = data.get("risk_score")
+        try:
+            risk_value = float(risk_score)
+        except (TypeError, ValueError):
+            return json_response(start_response, "400 Bad Request", {"error": "Invalid risk_score"})
+        if risk_value < 0 or risk_value > 1:
+            return json_response(start_response, "400 Bad Request", {"error": "Invalid risk_score"})
+
+        offer_id = data.get("offer_id")
+        if offer_id is not None and (not isinstance(offer_id, int) or offer_id <= 0):
+            return json_response(start_response, "400 Bad Request", {"error": "Invalid offer_id"})
+
+        seller_name = data.get("seller_name")
+        if seller_name is not None and not _is_valid_text(seller_name, min_len=2, max_len=120):
+            return json_response(start_response, "400 Bad Request", {"error": "Invalid seller_name"})
+
+        try:
+            return json_response(
+                start_response,
+                "201 Created",
+                create_fraud_signal(
+                    offer_id=offer_id,
+                    seller_name=seller_name,
+                    signal_type=data["signal_type"].strip(),
+                    risk_score=risk_value,
+                    details=data.get("details"),
+                ),
+            )
+        except ValueError as exc:
+            return json_response(start_response, "404 Not Found", {"error": str(exc)})
+
+    if path == "/api/fraud-signals" and method == "GET":
+        query = parse_qs(environ.get("QUERY_STRING", ""))
+        min_risk, err = _float_query(query.get("min_risk_score", [None])[0], "min_risk_score")
+        if err:
+            return json_response(start_response, "400 Bad Request", {"error": err})
+        return json_response(start_response, "200 OK", list_fraud_signals(min_risk))
 
     if path.startswith("/api/compare/") and method == "GET":
         product_id_raw = path.rsplit("/", 1)[-1]
