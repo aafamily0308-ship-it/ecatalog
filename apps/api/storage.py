@@ -78,6 +78,38 @@ def init_db() -> None:
 
     cur.execute(
         """
+        CREATE TABLE IF NOT EXISTS staged_products (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            title TEXT NOT NULL,
+            brand TEXT,
+            category TEXT,
+            condition TEXT NOT NULL CHECK (condition IN ('new', 'used', 'refurbished')),
+            source TEXT NOT NULL DEFAULT 'manual',
+            source_url TEXT,
+            created_at TEXT DEFAULT CURRENT_TIMESTAMP
+        )
+        """
+    )
+
+    cur.execute(
+        """
+        CREATE TABLE IF NOT EXISTS staged_offers (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            staged_product_id INTEGER NOT NULL,
+            seller_name TEXT NOT NULL,
+            seller_city TEXT,
+            price_azn REAL NOT NULL,
+            currency TEXT NOT NULL DEFAULT 'AZN',
+            url TEXT,
+            is_available INTEGER NOT NULL DEFAULT 1,
+            created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (staged_product_id) REFERENCES staged_products(id)
+        )
+        """
+    )
+
+    cur.execute(
+        """
         CREATE TABLE IF NOT EXISTS price_history (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             offer_id INTEGER NOT NULL,

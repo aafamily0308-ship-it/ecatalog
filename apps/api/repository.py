@@ -87,18 +87,22 @@ def list_products(
     return [dict(row) for row in rows]
 
 
-def _find_or_create_seller(name: str, city: str | None) -> int:
-    conn = get_connection()
-    cur = conn.cursor()
+def _find_or_create_seller(name: str, city: str | None, cur=None) -> int:
+    owns_connection = cur is None
+    conn = get_connection() if owns_connection else None
+    cur = conn.cursor() if owns_connection else cur
+
     row = cur.execute("SELECT id FROM sellers WHERE name = ? AND city IS ?", (name, city)).fetchone()
     if row:
-        conn.close()
+        if owns_connection:
+            conn.close()
         return row["id"]
 
     cur.execute("INSERT INTO sellers (name, city) VALUES (?, ?)", (name, city))
-    conn.commit()
     seller_id = cur.lastrowid
-    conn.close()
+    if owns_connection:
+        conn.commit()
+        conn.close()
     return seller_id
 
 
@@ -698,3 +702,140 @@ def get_diagnostics_snapshot() -> dict:
         "average_fraud_risk": float(avg_risk),
         "latest_fraud_signals": [dict(row) for row in latest_signals_rows],
     }
+
+
+def create_staged_product(*, title: str, brand: str | None, category: str | None, condition: str, source: str, source_url: str | None) -> dict:
+    conn = get_connection()
+    cur = conn.cursor()
+    cur.execute(
+        "INSERT INTO staged_products (title, brand, category, condition, source, source_url) VALUES (?, ?, ?, ?, ?, ?)",
+        (title, brand, category, condition, source, source_url),
+    )
+    conn.commit()
+    staged_id = cur.lastrowid
+    row = cur.execute(
+        "SELECT id, title, brand, category, condition, source, source_url, created_at FROM staged_products WHERE id = ?",
+        (staged_id,),
+    ).fetchone()
+    conn.close()
+    return dict(row)
+
+
+def create_staged_offer(
+    *,
+    staged_product_id: int,
+    seller_name: str,
+    seller_city: str | None,
+    price_azn: float,
+    currency: str = "AZN",
+    url: str | None = None,
+    is_available: bool = True,
+) -> dict:
+    conn = get_connection()
+    cur = conn.cursor()
+    row = cur.execute("SELECT id FROM staged_products WHERE id = ?", (staged_product_id,)).fetchone()
+    if not row:
+        conn.close()
+        raise ValueError("Staged product not found")
+
+    cur.execute(
+        """
+        INSERT INTO staged_offers (staged_product_id, seller_name, seller_city, price_azn, currency, url, is_available)
+        VALUES (?, ?, ?, ?, ?, ?, ?)
+        """,
+        (staged_product_id, seller_name, seller_city, price_azn, currency, url, int(is_available)),
+    )
+    conn.commit()
+    offer_id = cur.lastrowid
+    offer = cur.execute(
+        "SELECT id, staged_product_id, seller_name, seller_city, price_azn, currency, url, is_available, created_at FROM staged_offers WHERE id = ?",
+        (offer_id,),
+    ).fetchone()
+    conn.close()
+    data = dict(offer)
+    data["is_available"] = bool(data["is_available"])
+    return data
+
+
+def list_staged_products() -> list[dict]:
+    conn = get_connection()
+    cur = conn.cursor()
+    rows = cur.execute(
+        "SELECT id, title, brand, category, condition, source, source_url, created_at FROM staged_products ORDER BY id DESC"
+    ).fetchall()
+    conn.close()
+    return [dict(row) for row in rows]
+
+
+def list_staged_offers(staged_product_id: int | None = None) -> list[dict]:
+    conn = get_connection()
+    cur = conn.cursor()
+    if staged_product_id:
+        rows = cur.execute(
+            "SELECT id, staged_product_id, seller_name, seller_city, price_azn, currency, url, is_available, created_at FROM staged_offers WHERE staged_product_id = ? ORDER BY id DESC",
+            (staged_product_id,),
+        ).fetchall()
+    else:
+        rows = cur.execute(
+            "SELECT id, staged_product_id, seller_name, seller_city, price_azn, currency, url, is_available, created_at FROM staged_offers ORDER BY id DESC"
+        ).fetchall()
+    conn.close()
+    data = []
+    for row in rows:
+        item = dict(row)
+        item["is_available"] = bool(item["is_available"])
+        data.append(item)
+    return data
+
+
+def publish_staged_product(staged_product_id: int) -> dict:
+    conn = get_connection()
+    cur = conn.cursor()
+
+    staged = cur.execute(
+        "SELECT id, title, brand, category, condition FROM staged_products WHERE id = ?",
+        (staged_product_id,),
+    ).fetchone()
+    if not staged:
+        conn.close()
+        raise ValueError("Staged product not found")
+
+    cur.execute(
+        "INSERT INTO products (title, brand, category, condition) VALUES (?, ?, ?, ?)",
+        (staged["title"], staged["brand"], staged["category"], staged["condition"]),
+    )
+    product_id = cur.lastrowid
+
+    staged_offers = cur.execute(
+        "SELECT seller_name, seller_city, price_azn, currency, url, is_available FROM staged_offers WHERE staged_product_id = ?",
+        (staged_product_id,),
+    ).fetchall()
+
+    published_offers = 0
+    for staged_offer in staged_offers:
+        seller_id = _find_or_create_seller(staged_offer["seller_name"], staged_offer["seller_city"], cur)
+        cur.execute(
+            """
+            INSERT INTO offers (product_id, seller_id, price_azn, currency, url, is_available, status)
+            VALUES (?, ?, ?, ?, ?, ?, 'approved')
+            """,
+            (
+                product_id,
+                seller_id,
+                staged_offer["price_azn"],
+                staged_offer["currency"],
+                staged_offer["url"],
+                staged_offer["is_available"],
+            ),
+        )
+        offer_id = cur.lastrowid
+        _insert_price_history(cur, offer_id, None, float(staged_offer["price_azn"]))
+        published_offers += 1
+
+    cur.execute("DELETE FROM staged_offers WHERE staged_product_id = ?", (staged_product_id,))
+    cur.execute("DELETE FROM staged_products WHERE id = ?", (staged_product_id,))
+
+    conn.commit()
+    conn.close()
+
+    return {"published_product_id": product_id, "published_offers": published_offers}

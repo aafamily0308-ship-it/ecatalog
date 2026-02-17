@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>eCatalog Admin</title>
+    <link rel="stylesheet" href="/web/styles.css" />
+  </head>
+  <body>
+    <main class="container">
+      <header class="hero">
+        <div>
+          <h1>Admin Panel</h1>
+          <p>Staging zone for products, parsing, and publishing to public site.</p>
+        </div>
+        <a class="admin-link" href="/">Open Public Site</a>
+      </header>
+
+      <p id="admin-message" class="message" aria-live="polite"></p>
+
+      <section class="card">
+        <h2>Stage product manually</h2>
+        <form id="stage-product-form" class="grid-form">
+          <input name="title" placeholder="Product title" required />
+          <input name="brand" placeholder="Brand" />
+          <input name="category" placeholder="Category" />
+          <select name="condition"><option value="new">New</option><option value="used">Used</option><option value="refurbished">Refurbished</option></select>
+          <button type="submit">Stage product</button>
+        </form>
+      </section>
+
+      <section class="card">
+        <h2>Stage offer manually</h2>
+        <form id="stage-offer-form" class="grid-form">
+          <input name="staged_product_id" type="number" placeholder="Staged Product ID" required />
+          <input name="seller_name" placeholder="Seller name" required />
+          <input name="seller_city" placeholder="Seller city" />
+          <input name="price_azn" type="number" min="1" step="0.01" placeholder="Price AZN" required />
+          <input name="url" placeholder="Offer URL" />
+          <button type="submit">Stage offer</button>
+        </form>
+      </section>
+
+      <section class="card">
+        <h2>Web parsing to staging (JSON-LD)</h2>
+        <form id="parse-form" class="grid-form">
+          <input name="source_url" placeholder="https://example.com/product-page" required />
+          <button type="submit">Parse and stage</button>
+        </form>
+      </section>
+
+      <section class="card">
+        <h2>Staged products</h2>
+        <button id="refresh-staged" type="button">Refresh staged list</button>
+        <pre id="staged-products-box" class="json-box">No staged products loaded</pre>
+      </section>
+
+      <section class="card">
+        <h2>Publish staged product</h2>
+        <form id="publish-form" class="grid-form">
+          <input name="staged_product_id" type="number" placeholder="Staged Product ID" required />
+          <button type="submit">Publish to public site</button>
+        </form>
+      </section>
+    </main>
+
+    <script src="/web/admin.js"></script>
+  </body>
+</html>

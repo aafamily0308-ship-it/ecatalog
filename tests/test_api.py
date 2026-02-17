@@ -124,6 +124,39 @@ class ApiHttpValidationTests(unittest.TestCase):
         return captured["status"], json.loads(response_body.decode("utf-8"))
 
 
+
+    def test_admin_staging_publish_flow(self) -> None:
+        status, staged = self._request(
+            "POST",
+            "/api/admin/staged/products",
+            {"title": "Canon EOS R", "brand": "Canon", "category": "camera", "condition": "used", "source": "manual"},
+        )
+        self.assertTrue(status.startswith("201"))
+
+        self._request(
+            "POST",
+            "/api/admin/staged/offers",
+            {
+                "staged_product_id": staged["id"],
+                "seller_name": "PhotoShop",
+                "seller_city": "Baku",
+                "price_azn": 1800,
+                "currency": "AZN",
+            },
+        )
+
+        status, public_before = self._request("GET", "/api/products")
+        self.assertTrue(status.startswith("200"))
+        self.assertEqual(len([p for p in public_before if p["title"] == "Canon EOS R"]), 0)
+
+        status, published = self._request("POST", f"/api/admin/staged/products/{staged['id']}/publish")
+        self.assertTrue(status.startswith("200"))
+        self.assertEqual(published["published_offers"], 1)
+
+        status, public_after = self._request("GET", "/api/products")
+        self.assertTrue(status.startswith("200"))
+        self.assertEqual(len([p for p in public_after if p["title"] == "Canon EOS R"]), 1)
+
     def test_diagnostics_summary_endpoint(self) -> None:
         self._request("POST", "/api/products", {"title": "Pixel 9", "brand": "Google", "category": "phones", "condition": "new"})
         status, diag = self._request("GET", "/api/diagnostics/summary")

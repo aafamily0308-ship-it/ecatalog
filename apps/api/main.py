@@ -12,6 +12,8 @@ from apps.api.repository import (
     create_offer,
     create_price_alert,
     create_product,
+    create_staged_offer,
+    create_staged_product,
     auto_scan_fraud_signals,
     get_comparison,
     get_diagnostics_snapshot,
@@ -23,7 +25,10 @@ from apps.api.repository import (
     list_price_alerts,
     process_price_alerts,
     list_products,
+    list_staged_offers,
+    list_staged_products,
     list_seller_reviews,
+    publish_staged_product,
     set_seller_verification,
     update_offer_price,
     update_offer_status,
@@ -38,6 +43,8 @@ from apps.api.schemas import (
     VALID_VERIFICATION_LEVELS,
 )
 from apps.api.storage import init_db
+from scripts.source_extractors import extract_offers_from_jsonld
+from urllib import request
 
 WEB_DIR = Path(__file__).resolve().parents[1] / "web"
 
@@ -108,14 +115,121 @@ def application(environ, start_response):
     if path == "/":
         return file_response(start_response, WEB_DIR / "index.html", "text/html; charset=utf-8")
 
+    if path == "/admin":
+        return file_response(start_response, WEB_DIR / "admin.html", "text/html; charset=utf-8")
+
     if path == "/web/styles.css":
         return file_response(start_response, WEB_DIR / "styles.css", "text/css; charset=utf-8")
 
     if path == "/web/app.js":
         return file_response(start_response, WEB_DIR / "app.js", "application/javascript; charset=utf-8")
 
+    if path == "/web/admin.js":
+        return file_response(start_response, WEB_DIR / "admin.js", "application/javascript; charset=utf-8")
+
     if path == "/health":
         return json_response(start_response, "200 OK", {"status": "ok"})
+
+    if path == "/api/admin/staged/products" and method == "POST":
+        data = parse_json_body(environ)
+        if not _is_valid_text(data.get("title"), min_len=2, max_len=140):
+            return json_response(start_response, "400 Bad Request", {"error": "Invalid title"})
+        condition = data.get("condition")
+        if condition not in VALID_CONDITIONS:
+            return json_response(start_response, "400 Bad Request", {"error": "Invalid condition"})
+
+        created = create_staged_product(
+            title=data["title"].strip(),
+            brand=data.get("brand"),
+            category=data.get("category"),
+            condition=condition,
+            source=data.get("source") or "manual",
+            source_url=data.get("source_url"),
+        )
+        return json_response(start_response, "201 Created", created)
+
+    if path == "/api/admin/staged/products" and method == "GET":
+        return json_response(start_response, "200 OK", list_staged_products())
+
+    if path == "/api/admin/staged/offers" and method == "POST":
+        data = parse_json_body(environ)
+        if not isinstance(data.get("staged_product_id"), int):
+            return json_response(start_response, "400 Bad Request", {"error": "Invalid staged_product_id"})
+        if not _is_valid_text(data.get("seller_name"), min_len=2, max_len=120):
+            return json_response(start_response, "400 Bad Request", {"error": "Invalid seller_name"})
+        if not _is_valid_price(data.get("price_azn")):
+            return json_response(start_response, "400 Bad Request", {"error": "Invalid price_azn"})
+
+        try:
+            created = create_staged_offer(
+                staged_product_id=data["staged_product_id"],
+                seller_name=data["seller_name"].strip(),
+                seller_city=data.get("seller_city"),
+                price_azn=float(data["price_azn"]),
+                currency=data.get("currency") or "AZN",
+                url=data.get("url"),
+                is_available=bool(data.get("is_available", True)),
+            )
+            return json_response(start_response, "201 Created", created)
+        except ValueError as exc:
+            return json_response(start_response, "400 Bad Request", {"error": str(exc)})
+
+    if path == "/api/admin/staged/offers" and method == "GET":
+        query = parse_qs(environ.get("QUERY_STRING", ""))
+        staged_product_id = query.get("staged_product_id", [None])[0]
+        if staged_product_id:
+            try:
+                spid = int(staged_product_id)
+            except ValueError:
+                return json_response(start_response, "400 Bad Request", {"error": "Invalid staged_product_id"})
+            return json_response(start_response, "200 OK", list_staged_offers(spid))
+        return json_response(start_response, "200 OK", list_staged_offers())
+
+    if path.startswith("/api/admin/staged/products/") and path.endswith("/publish") and method == "POST":
+        staged_id_raw = path.split("/")[5]
+        try:
+            staged_id = int(staged_id_raw)
+        except ValueError:
+            return json_response(start_response, "400 Bad Request", {"error": "Invalid staged product id"})
+        try:
+            return json_response(start_response, "200 OK", publish_staged_product(staged_id))
+        except ValueError as exc:
+            return json_response(start_response, "404 Not Found", {"error": str(exc)})
+
+    if path == "/api/admin/staged/parse-url" and method == "POST":
+        data = parse_json_body(environ)
+        source_url = data.get("source_url")
+        if not _is_valid_text(source_url, min_len=10, max_len=500):
+            return json_response(start_response, "400 Bad Request", {"error": "Invalid source_url"})
+        try:
+            with request.urlopen(source_url) as response:
+                html = response.read().decode("utf-8", errors="ignore")
+        except Exception as exc:
+            return json_response(start_response, "400 Bad Request", {"error": f"Source fetch failed: {exc}"})
+
+        rows = extract_offers_from_jsonld(html)
+        created_products = []
+        for row in rows:
+            staged_product = create_staged_product(
+                title=row["title"],
+                brand=row.get("brand"),
+                category=row.get("category"),
+                condition=row.get("condition") or "new",
+                source="jsonld",
+                source_url=source_url,
+            )
+            create_staged_offer(
+                staged_product_id=staged_product["id"],
+                seller_name=row.get("seller_name") or "Unknown seller",
+                seller_city=row.get("seller_city"),
+                price_azn=float(row["price_azn"]),
+                currency=row.get("currency") or "AZN",
+                url=row.get("url"),
+                is_available=True,
+            )
+            created_products.append(staged_product)
+
+        return json_response(start_response, "200 OK", {"staged_products_created": len(created_products)})
 
     if path == "/api/products" and method == "POST":
         data = parse_json_body(environ)
