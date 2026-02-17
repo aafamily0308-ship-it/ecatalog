@@ -46,3 +46,22 @@ button {
 li {
   margin-bottom: 8px;
 }
+
+.message {
+  min-height: 20px;
+  margin: 8px 0 16px;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.message.success {
+  color: #0a7a22;
+}
+
+.message.error {
+  color: #b81f1f;
+}
+
+.offer-status {
+  font-weight: 700;
+}

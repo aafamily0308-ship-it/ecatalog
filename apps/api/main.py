@@ -3,8 +3,22 @@ from pathlib import Path
 from urllib.parse import parse_qs
 from wsgiref.simple_server import make_server
 
-from apps.api.repository import create_offer, create_product, get_comparison, list_offers, list_products
-from apps.api.schemas import OfferCreate, ProductCreate, SellerCreate, VALID_CONDITIONS
+from apps.api.repository import (
+    create_offer,
+    create_product,
+    get_comparison,
+    list_offers,
+    list_products,
+    update_offer_status,
+)
+from apps.api.schemas import (
+    OfferCreate,
+    OfferStatusUpdate,
+    ProductCreate,
+    SellerCreate,
+    VALID_CONDITIONS,
+    VALID_OFFER_STATUSES,
+)
 from apps.api.storage import init_db
 
 WEB_DIR = Path(__file__).resolve().parents[1] / "web"
@@ -28,6 +42,20 @@ def parse_json_body(environ) -> dict:
     return json.loads(raw.decode("utf-8")) if raw else {}
 
 
+def _is_valid_text(value: object, *, min_len: int = 2, max_len: int = 200) -> bool:
+    if not isinstance(value, str):
+        return False
+    value = value.strip()
+    return min_len <= len(value) <= max_len
+
+
+def _is_valid_price(value: object) -> bool:
+    try:
+        return float(value) > 0
+    except (ValueError, TypeError):
+        return False
+
+
 def application(environ, start_response):
     path = environ["PATH_INFO"]
     method = environ["REQUEST_METHOD"]
@@ -46,12 +74,24 @@ def application(environ, start_response):
 
     if path == "/api/products" and method == "POST":
         data = parse_json_body(environ)
+
+        if not _is_valid_text(data.get("title"), min_len=2, max_len=140):
+            return json_response(start_response, "400 Bad Request", {"error": "Invalid title"})
+
+        if data.get("brand") and not _is_valid_text(data.get("brand"), min_len=1, max_len=80):
+            return json_response(start_response, "400 Bad Request", {"error": "Invalid brand"})
+
         if data.get("condition") not in VALID_CONDITIONS:
             return json_response(start_response, "400 Bad Request", {"error": "Invalid condition"})
+
         payload = ProductCreate(
-            title=data["title"],
-            brand=data.get("brand"),
-            category=data.get("category"),
+            title=data["title"].strip(),
+            brand=data.get("brand").strip() if isinstance(data.get("brand"), str) and data.get("brand").strip() else None,
+            category=(
+                data.get("category").strip()
+                if isinstance(data.get("category"), str) and data.get("category").strip()
+                else None
+            ),
             condition=data["condition"],
         )
         return json_response(start_response, "201 Created", create_product(payload))
@@ -71,32 +111,85 @@ def application(environ, start_response):
 
     if path == "/api/offers" and method == "POST":
         data = parse_json_body(environ)
+
+        seller = data.get("seller")
+        if not isinstance(seller, dict) or not _is_valid_text(seller.get("name"), min_len=2, max_len=120):
+            return json_response(start_response, "400 Bad Request", {"error": "Invalid seller"})
+
+        if not isinstance(data.get("product_id"), int) or data["product_id"] <= 0:
+            return json_response(start_response, "400 Bad Request", {"error": "Invalid product_id"})
+
+        if not _is_valid_price(data.get("price_azn")):
+            return json_response(start_response, "400 Bad Request", {"error": "Invalid price"})
+
+        if data.get("currency") and not _is_valid_text(data.get("currency"), min_len=3, max_len=3):
+            return json_response(start_response, "400 Bad Request", {"error": "Invalid currency"})
+
         payload = OfferCreate(
             product_id=int(data["product_id"]),
             seller=SellerCreate(
-                name=data["seller"]["name"],
-                city=data["seller"].get("city"),
+                name=seller["name"].strip(),
+                city=(seller.get("city").strip() if isinstance(seller.get("city"), str) and seller.get("city").strip() else None),
             ),
             price_azn=float(data["price_azn"]),
-            currency=data.get("currency", "AZN"),
+            currency=(str(data.get("currency", "AZN")).upper()),
             url=data.get("url"),
             is_available=bool(data.get("is_available", True)),
         )
-        return json_response(start_response, "201 Created", create_offer(payload))
+
+        try:
+            return json_response(start_response, "201 Created", create_offer(payload))
+        except ValueError as exc:
+            return json_response(start_response, "400 Bad Request", {"error": str(exc)})
 
     if path == "/api/offers" and method == "GET":
         query = parse_qs(environ.get("QUERY_STRING", ""))
-        product_id = query.get("product_id", [None])[0]
-        data = list_offers(int(product_id)) if product_id else list_offers()
+        product_id_raw = query.get("product_id", [None])[0]
+        status = query.get("status", [None])[0]
+
+        if status and status not in VALID_OFFER_STATUSES:
+            return json_response(start_response, "400 Bad Request", {"error": "Invalid offer status"})
+
+        if product_id_raw:
+            try:
+                product_id = int(product_id_raw)
+            except ValueError:
+                return json_response(start_response, "400 Bad Request", {"error": "Invalid product_id"})
+            data = list_offers(product_id=product_id, status=status)
+        else:
+            data = list_offers(status=status)
+
         return json_response(start_response, "200 OK", data)
 
+    if path.startswith("/api/offers/") and path.endswith("/status") and method == "PATCH":
+        offer_id_raw = path.split("/")[3]
+        try:
+            offer_id = int(offer_id_raw)
+        except ValueError:
+            return json_response(start_response, "400 Bad Request", {"error": "Invalid offer id"})
+
+        data = parse_json_body(environ)
+        status_update = OfferStatusUpdate(status=data.get("status"))
+        if status_update.status not in VALID_OFFER_STATUSES:
+            return json_response(start_response, "400 Bad Request", {"error": "Invalid offer status"})
+
+        try:
+            return json_response(start_response, "200 OK", update_offer_status(offer_id, status_update.status))
+        except ValueError as exc:
+            return json_response(start_response, "404 Not Found", {"error": str(exc)})
+
     if path.startswith("/api/compare/") and method == "GET":
-        product_id = int(path.rsplit("/", 1)[-1])
+        product_id_raw = path.rsplit("/", 1)[-1]
+        try:
+            product_id = int(product_id_raw)
+        except ValueError:
+            return json_response(start_response, "400 Bad Request", {"error": "Invalid product_id"})
+
         try:
             result = get_comparison(product_id)
             return json_response(start_response, "200 OK", result)
-        except ValueError:
-            return json_response(start_response, "404 Not Found", {"error": "Product not found"})
+        except ValueError as exc:
+            return json_response(start_response, "404 Not Found", {"error": str(exc)})
 
     return json_response(start_response, "404 Not Found", {"error": "Not found"})
 

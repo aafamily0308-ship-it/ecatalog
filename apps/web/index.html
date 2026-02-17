@@ -13,6 +13,8 @@
         <p>Compare prices for new and used products in one place.</p>
       </header>
 
+      <p id="message" class="message" aria-live="polite"></p>
+
       <section class="card">
         <h2>Add product</h2>
         <form id="product-form">
@@ -37,6 +39,19 @@
           <input name="price_azn" type="number" min="1" step="0.01" placeholder="Price (AZN)" required />
           <input name="url" placeholder="Offer URL" />
           <button type="submit">Add offer</button>
+        </form>
+      </section>
+
+      <section class="card">
+        <h2>Moderation</h2>
+        <form id="moderation-form">
+          <input name="offer_id" type="number" placeholder="Offer ID" required />
+          <select name="status">
+            <option value="approved">Approve</option>
+            <option value="rejected">Reject</option>
+            <option value="pending">Set pending</option>
+          </select>
+          <button type="submit">Update status</button>
         </form>
       </section>
 

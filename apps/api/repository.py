@@ -1,5 +1,3 @@
-from collections.abc import Iterable
-
 from .schemas import OfferCreate, ProductCreate
 from .storage import get_connection
 
@@ -21,6 +19,14 @@ def create_product(payload: ProductCreate) -> dict:
         "category": payload.category,
         "condition": payload.condition,
     }
+
+
+def product_exists(product_id: int) -> bool:
+    conn = get_connection()
+    cur = conn.cursor()
+    row = cur.execute("SELECT id FROM products WHERE id = ?", (product_id,)).fetchone()
+    conn.close()
+    return bool(row)
 
 
 def list_products(
@@ -71,6 +77,9 @@ def _find_or_create_seller(name: str, city: str | None) -> int:
 
 
 def create_offer(payload: OfferCreate) -> dict:
+    if not product_exists(payload.product_id):
+        raise ValueError("Product does not exist")
+
     seller_id = _find_or_create_seller(payload.seller.name, payload.seller.city)
     conn = get_connection()
     cur = conn.cursor()
@@ -95,7 +104,7 @@ def create_offer(payload: OfferCreate) -> dict:
     row = cur.execute(
         """
         SELECT o.id, p.id as product_id, p.title, s.name as seller_name, s.city as seller_city,
-               o.price_azn, o.currency, p.condition, o.is_available, o.url
+               o.price_azn, o.currency, p.condition, o.is_available, o.url, o.status
         FROM offers o
         JOIN products p ON p.id = o.product_id
         JOIN sellers s ON s.id = o.seller_id
@@ -110,23 +119,60 @@ def create_offer(payload: OfferCreate) -> dict:
     return data
 
 
-def list_offers(product_id: int | None = None) -> list[dict]:
+def update_offer_status(offer_id: int, status: str) -> dict:
+    conn = get_connection()
+    cur = conn.cursor()
+    cur.execute("UPDATE offers SET status = ? WHERE id = ?", (status, offer_id))
+    conn.commit()
+
+    row = cur.execute(
+        """
+        SELECT o.id, p.id as product_id, p.title, s.name as seller_name, s.city as seller_city,
+               o.price_azn, o.currency, p.condition, o.is_available, o.url, o.status
+        FROM offers o
+        JOIN products p ON p.id = o.product_id
+        JOIN sellers s ON s.id = o.seller_id
+        WHERE o.id = ?
+        """,
+        (offer_id,),
+    ).fetchone()
+    conn.close()
+
+    if not row:
+        raise ValueError("Offer not found")
+
+    data = dict(row)
+    data["is_available"] = bool(data["is_available"])
+    return data
+
+
+def list_offers(product_id: int | None = None, status: str | None = None) -> list[dict]:
     conn = get_connection()
     cur = conn.cursor()
     sql = """
         SELECT o.id, p.id as product_id, p.title, s.name as seller_name, s.city as seller_city,
-               o.price_azn, o.currency, p.condition, o.is_available, o.url
+               o.price_azn, o.currency, p.condition, o.is_available, o.url, o.status
         FROM offers o
         JOIN products p ON p.id = o.product_id
         JOIN sellers s ON s.id = o.seller_id
     """
-    params: Iterable[object] = ()
+    params: list[object] = []
+    where_clauses: list[str] = []
+
     if product_id:
-        sql += " WHERE p.id = ?"
-        params = (product_id,)
+        where_clauses.append("p.id = ?")
+        params.append(product_id)
+
+    if status:
+        where_clauses.append("o.status = ?")
+        params.append(status)
+
+    if where_clauses:
+        sql += " WHERE " + " AND ".join(where_clauses)
+
     sql += " ORDER BY o.price_azn ASC"
 
-    rows = cur.execute(sql, params).fetchall()
+    rows = cur.execute(sql, tuple(params)).fetchall()
     conn.close()
 
     offers: list[dict] = []
@@ -138,9 +184,9 @@ def list_offers(product_id: int | None = None) -> list[dict]:
 
 
 def get_comparison(product_id: int) -> dict:
-    offers = list_offers(product_id)
+    offers = list_offers(product_id, status="approved")
     if not offers:
-        raise ValueError("Product not found or no offers available")
+        raise ValueError("Product not found or no approved offers available")
 
     best_price = min(offer["price_azn"] for offer in offers)
     title = offers[0]["title"]

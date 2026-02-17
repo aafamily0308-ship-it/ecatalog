@@ -10,6 +10,12 @@ def get_connection() -> sqlite3.Connection:
     return conn
 
 
+def _ensure_offer_status_column(cur: sqlite3.Cursor) -> None:
+    columns = [row["name"] for row in cur.execute("PRAGMA table_info(offers)").fetchall()]
+    if "status" not in columns:
+        cur.execute("ALTER TABLE offers ADD COLUMN status TEXT NOT NULL DEFAULT 'pending'")
+
+
 def init_db() -> None:
     conn = get_connection()
     cur = conn.cursor()
@@ -48,12 +54,15 @@ def init_db() -> None:
             currency TEXT NOT NULL DEFAULT 'AZN',
             url TEXT,
             is_available INTEGER NOT NULL DEFAULT 1,
+            status TEXT NOT NULL DEFAULT 'pending' CHECK (status IN ('pending', 'approved', 'rejected')),
             created_at TEXT DEFAULT CURRENT_TIMESTAMP,
             FOREIGN KEY (product_id) REFERENCES products(id),
             FOREIGN KEY (seller_id) REFERENCES sellers(id)
         )
         """
     )
+
+    _ensure_offer_status_column(cur)
 
     conn.commit()
     conn.close()
