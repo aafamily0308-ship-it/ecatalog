@@ -75,3 +75,20 @@ python scripts/check_phases.py --base-url http://127.0.0.1:8000
 ```
 
 Outputs a JSON report with `phase1_ok` and `phase2_ok` flags.
+
+
+## Visual overview (what you can see in browser now)
+
+Open `http://127.0.0.1:8000` and you can visually use:
+- Product creation form,
+- Offer creation form,
+- Moderation form (pending/approved/rejected),
+- Price update + price history viewer,
+- Phase 2 trust tools (seller verification, review submission, alert creation, fraud signal submission),
+- Catalog filters panel,
+- Product card JSON panel,
+- Seller dashboard JSON panel,
+- Seller reviews JSON panel,
+- Alerts and fraud signals JSON panels.
+
+Latest UI screenshot artifact: `phase2-complete-ui.png`

@@ -422,7 +422,7 @@ UI-паттерны:
 - ✅ Price alerts (целевая цена + email контакт).
 - ✅ Fraud signal registry (тип сигнала, risk_score, детали).
 
-Таким образом, Phase 2 начата на уровне backend + web workflows и тестов.
+Таким образом, Phase 2 завершена в рамках MVP scope на уровне backend + web workflows + операционной проверки.
 
 - ✅ Alert processing job endpoint (`POST /api/alerts/process`).
 - ✅ Auto-scan anti-fraud v1 rule endpoint (`POST /api/fraud-signals/auto-scan`).
