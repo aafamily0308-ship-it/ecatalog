@@ -564,3 +564,43 @@ def get_comparison(product_id: int) -> dict:
         "offers_count": len(offers),
         "offers": offers,
     }
+
+
+def get_diagnostics_snapshot() -> dict:
+    conn = get_connection()
+    cur = conn.cursor()
+
+    products_count = int(cur.execute("SELECT COUNT(*) AS c FROM products").fetchone()["c"])
+    sellers_count = int(cur.execute("SELECT COUNT(*) AS c FROM sellers").fetchone()["c"])
+    offers_count = int(cur.execute("SELECT COUNT(*) AS c FROM offers").fetchone()["c"])
+    approved_offers = int(cur.execute("SELECT COUNT(*) AS c FROM offers WHERE status = 'approved'").fetchone()["c"])
+    pending_offers = int(cur.execute("SELECT COUNT(*) AS c FROM offers WHERE status = 'pending'").fetchone()["c"])
+    alerts_count = int(cur.execute("SELECT COUNT(*) AS c FROM price_alerts WHERE is_active = 1").fetchone()["c"])
+    reviews_count = int(cur.execute("SELECT COUNT(*) AS c FROM seller_reviews").fetchone()["c"])
+
+    avg_risk_row = cur.execute("SELECT ROUND(AVG(risk_score), 4) AS avg_risk FROM fraud_signals").fetchone()
+    avg_risk = avg_risk_row["avg_risk"] if avg_risk_row and avg_risk_row["avg_risk"] is not None else 0
+
+    latest_signals_rows = cur.execute(
+        """
+        SELECT fs.id, fs.signal_type, fs.risk_score, fs.created_at, s.name AS seller_name
+        FROM fraud_signals fs
+        LEFT JOIN sellers s ON s.id = fs.seller_id
+        ORDER BY fs.id DESC
+        LIMIT 5
+        """
+    ).fetchall()
+
+    conn.close()
+
+    return {
+        "products_count": products_count,
+        "sellers_count": sellers_count,
+        "offers_count": offers_count,
+        "approved_offers": approved_offers,
+        "pending_offers": pending_offers,
+        "active_alerts_count": alerts_count,
+        "reviews_count": reviews_count,
+        "average_fraud_risk": float(avg_risk),
+        "latest_fraud_signals": [dict(row) for row in latest_signals_rows],
+    }

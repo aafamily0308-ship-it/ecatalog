@@ -41,3 +41,26 @@ Then open http://127.0.0.1:8000.
 ```bash
 python -m unittest discover -s tests
 ```
+
+
+## Service operations (start/stop/logs)
+
+```bash
+scripts/run_site.sh start
+scripts/run_site.sh status
+scripts/run_site.sh logs
+scripts/run_site.sh stop
+```
+
+This writes runtime logs to `ecatalog.log` (or `$ECATALOG_LOG_FILE`).
+
+## Automated diagnostics collection (remote-friendly)
+
+```bash
+python scripts/collect_diagnostics.py --base-url http://127.0.0.1:8000 --log-file ecatalog.log --output diagnostics_report.json
+```
+
+The report includes:
+- `/health` response,
+- `/api/diagnostics/summary` snapshot,
+- tail of runtime logs.

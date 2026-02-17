@@ -1,4 +1,7 @@
 import json
+import logging
+import os
+import time
 from pathlib import Path
 from urllib.parse import parse_qs
 from wsgiref.simple_server import make_server
@@ -10,6 +13,7 @@ from apps.api.repository import (
     create_price_alert,
     create_product,
     get_comparison,
+    get_diagnostics_snapshot,
     get_product_card,
     get_seller_dashboard,
     list_fraud_signals,
@@ -34,6 +38,14 @@ from apps.api.schemas import (
 from apps.api.storage import init_db
 
 WEB_DIR = Path(__file__).resolve().parents[1] / "web"
+
+LOG_FILE = os.getenv("ECATALOG_LOG_FILE", str(Path(__file__).resolve().parents[2] / "ecatalog.log"))
+logging.basicConfig(
+    filename=LOG_FILE,
+    level=logging.INFO,
+    format="%(asctime)s %(levelname)s %(message)s",
+)
+logger = logging.getLogger("ecatalog")
 
 
 def json_response(start_response, status: str, payload: dict | list):
@@ -85,8 +97,11 @@ def _float_query(raw: str | None, field: str) -> tuple[float | None, str | None]
 
 
 def application(environ, start_response):
+    started = time.time()
     path = environ["PATH_INFO"]
     method = environ["REQUEST_METHOD"]
+
+    logger.info("request_started method=%s path=%s", method, path)
 
     if path == "/":
         return file_response(start_response, WEB_DIR / "index.html", "text/html; charset=utf-8")
@@ -384,6 +399,12 @@ def application(environ, start_response):
             return json_response(start_response, "400 Bad Request", {"error": err})
         return json_response(start_response, "200 OK", list_fraud_signals(min_risk))
 
+    if path == "/api/diagnostics/summary" and method == "GET":
+        snapshot = get_diagnostics_snapshot()
+        snapshot["log_file"] = LOG_FILE
+        snapshot["uptime_hint"] = "Use scripts/collect_diagnostics.py for remote checks"
+        return json_response(start_response, "200 OK", snapshot)
+
     if path.startswith("/api/compare/") and method == "GET":
         product_id_raw = path.rsplit("/", 1)[-1]
         try:
@@ -404,6 +425,7 @@ def run() -> None:
     init_db()
     with make_server("0.0.0.0", 8000, application) as server:
         print("Serving on http://127.0.0.1:8000")
+        logger.info("server_started host=0.0.0.0 port=8000 log_file=%s", LOG_FILE)
         server.serve_forever()
 
 

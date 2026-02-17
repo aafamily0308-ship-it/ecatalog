@@ -123,6 +123,15 @@ class ApiHttpValidationTests(unittest.TestCase):
         response_body = b"".join(application(environ, start_response))
         return captured["status"], json.loads(response_body.decode("utf-8"))
 
+
+    def test_diagnostics_summary_endpoint(self) -> None:
+        self._request("POST", "/api/products", {"title": "Pixel 9", "brand": "Google", "category": "phones", "condition": "new"})
+        status, diag = self._request("GET", "/api/diagnostics/summary")
+        self.assertTrue(status.startswith("200"))
+        self.assertIn("products_count", diag)
+        self.assertIn("latest_fraud_signals", diag)
+        self.assertIn("log_file", diag)
+
     def test_phase2_http_endpoints(self) -> None:
         _, product = self._request("POST", "/api/products", {"title": "iPhone 15", "brand": "Apple", "category": "phones", "condition": "new"})
         _, offer = self._request("POST", "/api/offers", {
